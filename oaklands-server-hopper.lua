@@ -28,6 +28,7 @@ print("_G.AutoHopServers = true/false   -- Auto-hop every 5 minutes")
 print("_G.AutoHopInterval = 300         -- Seconds between hops (default 300s = 5min)")
 print("=============================")
 -- List all public servers for this place, with player counts
+
 local function ListServers()
     print("[Hopper] Fetching public servers...")
     local servers = {}
@@ -36,16 +37,25 @@ local function ListServers()
     local tries = 0
     repeat
         local url = urlBase .. (cursor ~= "" and ("&cursor=" .. cursor) or "")
+        print("[Hopper][DEBUG] Requesting URL: " .. url)
         local success, result = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(url))
+            local raw = game:HttpGet(url)
+            print("[Hopper][DEBUG] Raw response: " .. string.sub(raw, 1, 200))
+            return HttpService:JSONDecode(raw)
         end)
-        if success and result and result.data then
+        if not success then
+            print("[Hopper][ERROR] HttpGet or JSONDecode failed: " .. tostring(result))
+            break
+        end
+        if result and result.data then
+            print("[Hopper][DEBUG] Servers in this page: " .. tostring(#result.data))
             for _, server in ipairs(result.data) do
                 table.insert(servers, server)
             end
             cursor = result.nextPageCursor or ""
         else
-            print("[Hopper] Failed to fetch server list.")
+            print("[Hopper][ERROR] No data field in response! Full result:")
+            print(HttpService:JSONEncode(result))
             break
         end
         tries = tries + 1
