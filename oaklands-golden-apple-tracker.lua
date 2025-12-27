@@ -1,10 +1,9 @@
---> GoldenApple Tracker - Visual Highlighting Only
---> Highlights all GoldenApples on the map with golden glow
---> Shows real-time distances
---> You manually walk and collect (no automation)
---> Safe: No teleportation, no anti-cheat risk
+--> GoldenApple Tracker - With Real-Time Distance Display
+--> Highlights all GoldenApples on map + on-screen distance widget
+--> Shows live distance as you walk toward items
+--> Safe: No teleportation, no automation, pure visual aid
 
-print("[GoldenApple Tracker] Starting...")
+print("[GoldenApple Tracker+] Starting...")
 
 local Services = setmetatable({}, {
     __index = function(self, index)
@@ -12,17 +11,18 @@ local Services = setmetatable({}, {
     end
 })
 
-local Version = "v1.0-tracker"
+local Version = "v1.1-tracker-gui"
 local Players = Services.Players
 local Player = Players.LocalPlayer
+local UserInputService = Services.UserInputService
+local RunService = Services.RunService
 
-print("[Tracker] Loaded - GoldenApple Visual Tracker")
+print("[Tracker] Loaded - GoldenApple Tracker with Distance Display")
 print("===== TRACKER COMMANDS =====")
-print("_G.HighlightAllGoldenApples = true/false   -- Highlight all apples on map")
-print("_G.ShowDistanceLabels = true/false         -- Show distances to each apple")
-print("_G.RefreshHighlights()                     -- Update highlights manually")
-print("_G.ClearAllHighlights()                    -- Remove all highlights")
-print("_G.AppleCount()                            -- Count total GoldenApples")
+print("_G.HighlightAllGoldenApples = true/false   -- Highlight all apples")
+print("_G.ShowDistanceGUI = true/false            -- Show distance widget")
+print("_G.AppleCount()                            -- Count apples")
+print("_G.ClearAllHighlights()                    -- Clear highlights")
 print("=============================")
 
 --> TRACKING SYSTEM
@@ -30,7 +30,152 @@ local trackedApples = {}
 local appleHighlights = {}
 
 _G.HighlightAllGoldenApples = false
-_G.ShowDistanceLabels = true
+_G.ShowDistanceGUI = false
+
+--> GUI SETUP
+local screenGui = nil
+local distanceLabel = nil
+local appleNameLabel = nil
+local isDragging = false
+local dragOffset = Vector2.new(0, 0)
+
+local function CreateGUI()
+    if screenGui then return end
+    
+    print("[GUI] Creating distance display widget...")
+    
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AppleTrackerGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = Player:WaitForChild("PlayerGui")
+    
+    -- Main frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 250, 0, 120)
+    mainFrame.Position = UDim2.new(0, 20, 0, 20)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    mainFrame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+    mainFrame.BorderSizePixel = 2
+    mainFrame.Parent = screenGui
+    
+    -- Title
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, 0, 0, 25)
+    titleLabel.Position = UDim2.new(0, 0, 0, 0)
+    titleLabel.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    titleLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+    titleLabel.TextSize = 14
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = "🎯 CLOSEST APPLE"
+    titleLabel.Parent = mainFrame
+    
+    -- Distance label
+    distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, -10, 0, 35)
+    distanceLabel.Position = UDim2.new(0, 5, 0, 30)
+    distanceLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    distanceLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+    distanceLabel.TextSize = 24
+    distanceLabel.Font = Enum.Font.GothamBold
+    distanceLabel.Text = "-- m"
+    distanceLabel.Parent = mainFrame
+    
+    -- Apple name label
+    appleNameLabel = Instance.new("TextLabel")
+    appleNameLabel.Name = "AppleNameLabel"
+    appleNameLabel.Size = UDim2.new(1, -10, 0, 20)
+    appleNameLabel.Position = UDim2.new(0, 5, 0, 70)
+    appleNameLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    appleNameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    appleNameLabel.TextSize = 12
+    appleNameLabel.Font = Enum.Font.Gotham
+    appleNameLabel.Text = "Scanning..."
+    appleNameLabel.Parent = mainFrame
+    
+    -- Make draggable
+    titleLabel.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            dragOffset = Services.UserInputService:GetMouseLocation() - mainFrame.AbsolutePosition
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
+        end
+    end)
+    
+    RunService.RenderStepped:Connect(function()
+        if isDragging and mainFrame then
+            local mousePos = UserInputService:GetMouseLocation()
+            mainFrame.Position = UDim2.new(0, mousePos.X - dragOffset.X, 0, mousePos.Y - dragOffset.Y)
+        end
+    end)
+    
+    print("[GUI] Distance display created successfully")
+end
+
+local function RemoveGUI()
+    if screenGui then
+        pcall(function() screenGui:Destroy() end)
+        screenGui = nil
+        distanceLabel = nil
+        appleNameLabel = nil
+        print("[GUI] Distance display removed")
+    end
+end
+
+local function UpdateDistanceDisplay()
+    if not distanceLabel or not screenGui or not screenGui.Parent then
+        return
+    end
+    
+    local char = Player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        distanceLabel.Text = "-- m"
+        appleNameLabel.Text = "No character"
+        return
+    end
+    
+    local hrp = char.HumanoidRootPart
+    local apples = trackedApples
+    
+    if #apples == 0 then
+        distanceLabel.Text = "-- m"
+        appleNameLabel.Text = "No apples found"
+        return
+    end
+    
+    -- Find closest apple
+    local closest = apples[1]
+    local closestDist = math.huge
+    
+    for _, apple in ipairs(apples) do
+        if apple and apple.Parent then
+            pcall(function()
+                local pos = apple:GetPivot().Position
+                local dist = (pos - hrp.Position).Magnitude
+                if dist < closestDist then
+                    closest = apple
+                    closestDist = dist
+                end
+            end)
+        end
+    end
+    
+    if closest and closest.Parent then
+        distanceLabel.Text = math.floor(closestDist) .. " m"
+        appleNameLabel.Text = "→ Walk toward it"
+    else
+        distanceLabel.Text = "-- m"
+        appleNameLabel.Text = "Looking..."
+    end
+end
 
 local function FindAllGoldenApples()
     local results = {}
@@ -47,13 +192,12 @@ local function CreateHighlight(obj)
     
     pcall(function()
         local highlight = Instance.new("Highlight")
-        highlight.FillColor = Color3.fromRGB(255, 215, 0)      -- Golden yellow
-        highlight.OutlineColor = Color3.fromRGB(255, 140, 0)   -- Golden orange
+        highlight.FillColor = Color3.fromRGB(255, 215, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 140, 0)
         highlight.FillTransparency = 0.3
         highlight.OutlineTransparency = 0
         highlight.Parent = obj
         appleHighlights[obj] = highlight
-        print("[Highlight] Highlighted: " .. obj.Name)
     end)
 end
 
@@ -68,15 +212,12 @@ end
 
 _G.RefreshHighlights = function()
     print("[Tracker] Refreshing highlights...")
-    
-    -- Clear old highlights
     for obj, highlight in pairs(appleHighlights) do
         if not obj or not obj.Parent then
             RemoveHighlight(obj)
         end
     end
     
-    -- Find and highlight all GoldenApples
     local apples = FindAllGoldenApples()
     print("[Tracker] Found " .. #apples .. " GoldenApples")
     
@@ -89,87 +230,87 @@ _G.RefreshHighlights = function()
 end
 
 _G.ClearAllHighlights = function()
-    print("[Tracker] Clearing all highlights...")
+    print("[Tracker] Clearing highlights...")
     for obj, _ in pairs(appleHighlights) do
         RemoveHighlight(obj)
     end
     appleHighlights = {}
     trackedApples = {}
-    print("[Tracker] Highlights cleared")
+    RemoveGUI()
+    _G.ShowDistanceGUI = false
+    _G.HighlightAllGoldenApples = false
+    print("[Tracker] All cleared")
 end
 
 _G.AppleCount = function()
     local apples = FindAllGoldenApples()
-    print("[Tracker] Total GoldenApples in server: " .. #apples)
+    print("[Tracker] Total GoldenApples: " .. #apples)
     return #apples
 end
 
---> DISTANCE DISPLAY LOOP
+--> HIGHLIGHT MAINTENANCE
 task.spawn(function()
-    print("[Distance Monitor] Started")
     while true do
-        task.wait(0.5)
-        
-        if _G.HighlightAllGoldenApples and _G.ShowDistanceLabels then
-            local char = Player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local hrp = char.HumanoidRootPart
-                
-                for _, apple in ipairs(trackedApples) do
-                    if apple and apple.Parent then
-                        pcall(function()
-                            local pos = apple:GetPivot().Position
-                            local distance = math.floor((pos - hrp.Position).Magnitude)
-                            -- Distance printed to console every 0.5s (can be noisy but helpful)
-                            -- Commented out to reduce spam:
-                            -- print("[Apple] " .. apple.Name .. " - " .. distance .. "m away")
-                        end)
-                    end
-                end
-            end
-        end
-    end
-end)
-
---> HIGHLIGHT MAINTENANCE LOOP
-task.spawn(function()
-    print("[Highlight Maintenance] Started")
-    while true do
-        task.wait(5)  -- Check every 5 seconds
-        
+        task.wait(5)
         if _G.HighlightAllGoldenApples then
-            -- Find any new apples and highlight them
             local apples = FindAllGoldenApples()
             for _, apple in ipairs(apples) do
                 if not appleHighlights[apple] then
                     CreateHighlight(apple)
                 end
             end
-            
-            -- Remove highlights for deleted apples
             for obj, _ in pairs(appleHighlights) do
                 if not obj or not obj.Parent then
                     RemoveHighlight(obj)
                 end
             end
-            
             trackedApples = apples
         end
     end
 end)
 
---> STARTUP EXAMPLE
+--> DISTANCE UPDATE LOOP
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if _G.ShowDistanceGUI then
+            if not screenGui then
+                CreateGUI()
+            end
+            UpdateDistanceDisplay()
+        end
+    end
+end)
+
+--> MONITOR GUI TOGGLE
+task.spawn(function()
+    local lastState = false
+    while true do
+        task.wait(0.5)
+        if _G.ShowDistanceGUI ~= lastState then
+            lastState = _G.ShowDistanceGUI
+            if _G.ShowDistanceGUI then
+                CreateGUI()
+                print("[Tracker] Distance display ON")
+            else
+                RemoveGUI()
+                print("[Tracker] Distance display OFF")
+            end
+        end
+    end
+end)
+
 print("[Tracker] Ready!")
 print("")
 print("[QUICK START]")
-print("  1. Run: _G.HighlightAllGoldenApples = true")
-print("  2. All GoldenApples will glow golden on the map")
-print("  3. Walk to them manually and press E to pick up")
-print("  4. Run: _G.AppleCount() to see how many are nearby")
+print("  1. _G.HighlightAllGoldenApples = true    (see all apples glow)")
+print("  2. _G.ShowDistanceGUI = true             (show distance widget)")
+print("  3. Walk toward the closest apple")
+print("  4. Watch the distance count down in real-time")
+print("  5. Press E when you reach it to pick up")
 print("")
 print("[TIPS]")
-print("  - Highlights update automatically every 5 seconds")
-print("  - Picked-up apples stop being highlighted")
-print("  - Use _G.ClearAllHighlights() to stop seeing highlights")
-print("  - This is 100% safe - just visual aid, no automation")
+print("  - Drag the distance widget by its title bar to move it")
+print("  - Distance updates every 0.1 seconds")
+print("  - 100% safe: pure visual aid, no automation")
 print("")
