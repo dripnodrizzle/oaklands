@@ -126,9 +126,9 @@ end
 
 print("[Oaklands-Walk] Loaded - Walking Edition (NO TELEPORT)")
 print("===== WALKING COMMANDS =====")
-print("_G.FindApples()                      -- Search for apples")
-print("_G.WalkToClosestApple()              -- Walk to apple (manual mode)")
-print("_G.AutoWalkApples = true/false       -- Toggle walking auto-farm")
+print("_G.FindGoldenApples()                      -- Search for apples")
+print("_G.WalkToClosestGoldenApple()              -- Walk to apple (manual mode)")
+print("_G.AutoWalkGoldenApples = true/false       -- Toggle walking auto-farm")
 print("_G.ItemSearch.FindItemsByName(name)  -- Search for items")
 print("=============================")
 print("[TIP] Walking is SAFE - natural movement won't trigger anti-cheat!")
@@ -139,24 +139,24 @@ _G.Util = Util
 _G.WalkToPosition = WalkToPosition
 
 --> APPLE HELPERS (WALKING - SAFE)
-_G.FindApples = function()
-    local list = ItemSearch.FindItemsByName("apple")
+_G.FindGoldenApples = function()
+    local list = ItemSearch.FindItemsByName("GoldenApple")
     if #list > 0 then
-        print("[Apples] Found " .. #list .. " apples. Closest: " .. math.floor(list[1].distance) .. "m")
+        print("[GoldenApples] Found " .. #list .. " apples. Closest: " .. math.floor(list[1].distance) .. "m")
     else
-        print("[Apples] No apples found nearby")
+        print("[GoldenApples] No golden apples found nearby")
     end
     return list
 end
 
-_G.WalkToClosestApple = function()
-    local list = _G.FindApples()
+_G.WalkToClosestGoldenApple = function()
+    local list = _G.FindGoldenApples()
     if #list == 0 then
         return false
     end
     
     local closest = list[1]
-    print("[Walking] Going to " .. closest.name .. " (" .. math.floor(closest.distance) .. "m)")
+    print("[GoldenApple] Walking to " .. closest.name .. " (" .. math.floor(closest.distance) .. "m)")
     
     local success = WalkToPosition(closest.position, 60)
     
@@ -171,14 +171,14 @@ _G.WalkToClosestApple = function()
 end
 
 --> AUTO WALK FARM (WALKING - SAFE & NATURAL)
-_G.AutoWalkApples = false
+_G.AutoWalkGoldenApples = false
 task.spawn(function()
     print("[Walk-Farm] Auto walk loop ready")
     while true do
         task.wait(30)  -- Check every 30 seconds
-        if _G.AutoWalkApples then
+        if _G.AutoWalkGoldenApples then
             print("[Walk-Farm] Checking for apples...")
-            local ok = _G.WalkToClosestApple()
+            local ok = _G.WalkToClosestGoldenApple()
             if ok then
                 print("[Walk-Farm] Reached apple. Waiting 40s before next walk...")
                 task.wait(40)  -- 40s delay for manual pickup
@@ -190,7 +190,7 @@ task.spawn(function()
 end)
 
 print("[Oaklands-Walk] Ready!")
-print("[BEST PRACTICE] Use _G.WalkToClosestApple() for single walks")
-print("[AUTO MODE] Set _G.AutoWalkApples = true for continuous farming")
+print("[BEST PRACTICE] Use _G.WalkToClosestGoldenApple() for single walks")
+print("[AUTO MODE] Set _G.AutoWalkGoldenApples = true for continuous farming")
 print("[PICKUP] You must press E manually - do NOT use automated key presses")
 print("[SAFE] Walking looks like a real player - lowest ban risk!")
