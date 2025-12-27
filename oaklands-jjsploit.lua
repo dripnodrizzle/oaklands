@@ -2,6 +2,8 @@
 --> Core automation without external UI/ESP libraries
 --> Features: Auto break trees/logs/ores, teleport, Item Search, farming
 
+print("[Oaklands] Starting initialization...")
+
 if not LPH_OBFUSCATED then
     LPH_JIT_MAX = function(...)
         return ...
@@ -15,11 +17,16 @@ local Services = setmetatable({}, {
     end
 })
 
+print("[Oaklands] Services metatable created")
+
 local Version = "v1.2.1-jjsploit"
 local ReplicatedFirst = Services.ReplicatedFirst
 local Players = Services.Players
 local Player = Players.LocalPlayer
 local Character = Player.Character
+
+print("[Oaklands] Player:", Player and Player.Name or "nil")
+print("[Oaklands] Character:", Character and "loaded" or "nil")
 
 local Colours = {
     Magnetite = BrickColor.new("Bright violet"),
@@ -49,6 +56,7 @@ local Areas = {
 
 --> CORE FUNCTIONS
 local function Teleport(Pos)
+    print("[Teleport] Attempting teleport...")
     if not Player or not Player.Character or not Player.Character:FindFirstChild("Humanoid") then
         print("[Error] Cannot teleport: Character not found")
         return
@@ -62,6 +70,7 @@ local function Teleport(Pos)
         return
     end
     Player.Character:PivotTo(CFrame.new(targetPos))
+    print("[Teleport] Success")
 end
 
 local Util = {}
@@ -232,15 +241,16 @@ local Auras = {
 
 print("[Oaklands " .. Version .. "] Loaded - JJSploit Lite Edition")
 print("===== COMMANDS =====")
-print("Auras.tree_aura = true/false     -- Auto break trees")
-print("Auras.log_aura = true/false      -- Auto break logs")
-print("Actions.GoToTree()               -- Teleport to closest tree")
-print("Actions.GoToLog()                -- Teleport to closest log")
-print("Actions.BreakTree()              -- Break closest tree")
-print("Actions.BreakLog()               -- Break closest log")
-print("ItemSearch.FindItemsByName('name') -- Search for items")
-print("ItemSearch.ClearAllHighlights()  -- Clear highlights")
+print("_G.Auras.tree_aura = true/false     -- Auto break trees")
+print("_G.Auras.log_aura = true/false      -- Auto break logs")
+print("_G.Actions.GoToTree()               -- Teleport to closest tree")
+print("_G.Actions.GoToLog()                -- Teleport to closest log")
+print("_G.Actions.BreakTree()              -- Break closest tree")
+print("_G.Actions.BreakLog()               -- Break closest log")
+print("_G.ItemSearch.FindItemsByName('name') -- Search for items")
+print("_G.ItemSearch.ClearAllHighlights()  -- Clear highlights")
 print("====================")
+print("[Oaklands] Setting up global references...")
 
 --> AURA LOOPS (Non-blocking)
 task.spawn(function()
