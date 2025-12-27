@@ -5,17 +5,12 @@
 
 print("[BlueSteel Tracker+] Starting...")
 
-local Services = setmetatable({}, {
-    __index = function(self, index)
-        return game:GetService(index)
-    end
-})
-
 local Version = "v1.0-bluesteel-tracker-gui"
-local Players = Services.Players
+local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
-local UserInputService = Services.UserInputService
-local RunService = Services.RunService
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 print("[Tracker] Loaded - BlueSteel Tracker with Distance Display")
 print("===== TRACKER COMMANDS =====")
@@ -100,7 +95,7 @@ local function CreateGUI()
         if gameProcessed then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             isDragging = true
-            dragOffset = Services.UserInputService:GetMouseLocation() - mainFrame.AbsolutePosition
+            dragOffset = UserInputService:GetMouseLocation() - mainFrame.AbsolutePosition
         end
     end)
     
@@ -179,7 +174,7 @@ end
 
 local function FindAllBlueSteel()
     local results = {}
-    for _, v in ipairs(Services.Workspace:GetDescendants()) do
+    for _, v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") and v.Name == "BlueSteel" then
             table.insert(results, v)
         end
