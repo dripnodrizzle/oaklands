@@ -283,3 +283,45 @@ _G.Util = Util
 _G.Teleport = Teleport
 
 print("[Oaklands] Ready! Use _G.Auras, _G.Actions, _G.ItemSearch, _G.Util")
+
+-- Golden Apple helpers (JJSploit-friendly)
+_G.FindGoldenApples = function()
+    local ok, res = pcall(function()
+        return ItemSearch.FindItemsByName("golden apple")
+    end)
+    if not ok then
+        print("[GoldenApple] Search failed:", res)
+        return {}
+    end
+    return res or {}
+end
+
+_G.TeleportToClosestGoldenApple = function()
+    local list = _G.FindGoldenApples()
+    if #list == 0 then
+        print("[GoldenApple] No Golden Apples found")
+        return false
+    end
+    local closest = list[1]
+    print("[GoldenApple] Teleporting to:", closest.name, math.floor(closest.distance))
+    local target = closest.object:IsA("Model") and closest.object:GetPivot() or CFrame.new(closest.position)
+    pcall(function() Teleport(target) end)
+    return true
+end
+
+_G.AutoCollectGoldenApples = false
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if _G.AutoCollectGoldenApples then
+            local ok = _G.TeleportToClosestGoldenApple()
+            if ok then
+                task.wait(0.6)
+                pcall(function() Util.KeyPress(Enum.KeyCode.E, 0.15) end)
+                task.wait(1)
+            else
+                task.wait(3)
+            end
+        end
+    end
+end)
