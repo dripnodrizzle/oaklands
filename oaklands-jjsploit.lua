@@ -317,7 +317,7 @@ _G.TeleportToClosestGoldenApple = function()
     local closest = list[1]
     print("[GoldenApple] Teleporting to:", closest.name, math.floor(closest.distance))
     local target = closest.object:IsA("Model") and closest.object:GetPivot() or CFrame.new(closest.position)
-    pcall(function() Teleport(target) end)
+    pcall(function() _G.Teleport(target) end)
     return true
 end
 
