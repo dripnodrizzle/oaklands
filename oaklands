@@ -1441,28 +1441,40 @@ task.spawn(function()
         task.wait(0.5)
         if (tick() - lastUpdate) > 0.5 then
             lastUpdate = tick()
-            -- Remove any previously created buttons to avoid duplicates
-            for _, btn in ipairs(resultButtons) do
-                if type(btn) == "table" and btn.Remove then
+            local desiredCount = #currentSearchResults > 0 and math.min(#currentSearchResults, 10) or 0
+            
+            -- Remove buttons beyond desired count
+            while #resultButtons > desiredCount do
+                local btn = table.remove(resultButtons)
+                if btn and type(btn) == "table" and btn.Remove then
                     pcall(function() btn:Remove() end)
                 end
             end
-            resultButtons = {}
+            
+            -- Update existing buttons or create new ones
             if #currentSearchResults > 0 then
-                for i = 1, math.min(#currentSearchResults, 10) do
+                for i = 1, desiredCount do
                     local result = currentSearchResults[i]
-                    local created = resultsection:Button {
-                        Name = string.format("%d. %s (%.0fm)", i, result.name, result.distance),
-                        Callback = function()
-                            if result.object then
-                                Teleport(result.object:IsA("Model") and result.object:GetPivot() or CFrame.new(result.position))
-                                ItemSearch.HighlightItem(result.object)
-                                selectedSearchItem = result
-                                print("[Item Search] Teleported to: " .. result.name)
+                    if resultButtons[i] then
+                        -- Update existing button label to avoid flicker
+                        pcall(function()
+                            resultButtons[i]:SetName(string.format("%d. %s (%.0fm)", i, result.name, result.distance))
+                        end)
+                    else
+                        -- Create new button if needed
+                        local created = resultsection:Button {
+                            Name = string.format("%d. %s (%.0fm)", i, result.name, result.distance),
+                            Callback = function()
+                                if result.object then
+                                    Teleport(result.object:IsA("Model") and result.object:GetPivot() or CFrame.new(result.position))
+                                    ItemSearch.HighlightItem(result.object)
+                                    selectedSearchItem = result
+                                    print("[Item Search] Teleported to: " .. result.name)
+                                end
                             end
-                        end
-                    }
-                    table.insert(resultButtons, created)
+                        }
+                        table.insert(resultButtons, created)
+                    end
                 end
             end
         end
