@@ -135,10 +135,19 @@ end
 
 function Util.KeyPress(keyCode, time)
     time = time or 0.1
-    local VirtualInputManager = Services.VirtualInputManager
-    VirtualInputManager:SendKeyEvent(true, keyCode, false, Services.RunService:IsStudio())
+    local vim = Services.VirtualInputManager
+    if vim and type(vim.SendKeyEvent) == "function" then
+        pcall(function()
+            vim:SendKeyEvent(true, keyCode, false, Services.RunService:IsStudio())
+            task.wait(time)
+            vim:SendKeyEvent(false, keyCode, false, Services.RunService:IsStudio())
+        end)
+        return
+    end
+    -- Fallback: VirtualInputManager not available (common in some executors like JJSploit)
+    -- Just wait the duration to simulate a press timing without sending an input
+    print("[Util.KeyPress] VirtualInputManager unavailable; skipping physical key event")
     task.wait(time)
-    VirtualInputManager:SendKeyEvent(false, keyCode, false, Services.RunService:IsStudio())
 end
 
 --> ACTIONS
