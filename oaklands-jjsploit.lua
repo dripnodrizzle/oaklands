@@ -295,20 +295,23 @@ print("[Oaklands] Ready! Use _G.Auras, _G.Actions, _G.ItemSearch, _G.Util")
 
 -- Golden Apple helpers (JJSploit-friendly)
 _G.FindGoldenApples = function()
+    print("[Debug] FindGoldenApples called")
     local ok, res = pcall(function()
-        return ItemSearch.FindItemsByName("golden apple")
+        return ItemSearch.FindItemsByName("apple")
     end)
     if not ok then
         print("[GoldenApple] Search failed:", res)
         return {}
     end
+    print("[Debug] Search returned " .. #(res or {}) .. " results")
     return res or {}
 end
 
 _G.TeleportToClosestGoldenApple = function()
+    print("[Debug] TeleportToClosestGoldenApple called")
     local list = _G.FindGoldenApples()
     if #list == 0 then
-        print("[GoldenApple] No Golden Apples found")
+        print("[GoldenApple] No apples found")
         return false
     end
     local closest = list[1]
@@ -320,9 +323,11 @@ end
 
 _G.AutoCollectGoldenApples = false
 task.spawn(function()
+    print("[Debug] Auto-collect loop started")
     while true do
         task.wait(1)
         if _G.AutoCollectGoldenApples then
+            print("[Debug] Auto-collect is enabled, attempting...")
             local ok = _G.TeleportToClosestGoldenApple()
             if ok then
                 task.wait(0.6)
