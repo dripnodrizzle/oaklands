@@ -109,9 +109,17 @@ local function IsInterestingObject(obj)
     if obj:IsA("Tool") or obj:IsA("Accessory") then return true end
     
     -- Interactive elements
-    if obj:FindFirstChildWhichIsA("ClickDetector", true) then return true end
-    if obj:FindFirstChildWhichIsA("ProximityPrompt", true) then return true end
-    if obj:FindFirstChildWhichIsA("Attachment", true) then return true end
+    if obj:FindFirstChildOfClass("ClickDetector") then return true end
+    if obj:FindFirstChildOfClass("ProximityPrompt") then return true end
+    
+    -- Check descendants for interactions (limited search)
+    for _, desc in ipairs(obj:GetChildren()) do
+        if desc:IsA("ClickDetector") or desc:IsA("ProximityPrompt") then
+            return true
+        end
+    end
+    
+    if obj:FindFirstChildOfClass("Attachment") then return true end
     
     -- Has custom attributes (game-specific data)
     local attrs = obj:GetAttributes()
@@ -299,10 +307,20 @@ task.spawn(function()
                     
                     -- Also check descendants for interactions
                     if not clickDetector then
-                        clickDetector = target:FindFirstChildWhichIsA("ClickDetector", true)
+                        for _, desc in ipairs(target:GetDescendants()) do
+                            if desc:IsA("ClickDetector") then
+                                clickDetector = desc
+                                break
+                            end
+                        end
                     end
                     if not proximityPrompt then
-                        proximityPrompt = target:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        for _, desc in ipairs(target:GetDescendants()) do
+                            if desc:IsA("ProximityPrompt") then
+                                proximityPrompt = desc
+                                break
+                            end
+                        end
                     end
                     
                     if clickDetector then
