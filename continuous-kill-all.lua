@@ -47,7 +47,8 @@ local attemptCount = 0
 -- Get next alive NPC that hasn't been processed
 local function GetNextNPC()
     for _, npc in ipairs(EntityFolder:GetChildren()) do
-        if npc:IsA("Model") and not processedNPCs[npc] then
+        -- Skip player's character
+        if npc:IsA("Model") and not processedNPCs[npc] and npc ~= char then
             local humanoid = npc:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid.Health > 0 then
                 local rootPart = npc:FindFirstChild("HumanoidRootPart")
@@ -81,7 +82,7 @@ end
 local function CountAliveNPCs()
     local count = 0
     for _, npc in ipairs(EntityFolder:GetChildren()) do
-        if npc:IsA("Model") then
+        if npc:IsA("Model") and npc ~= char then
             local humanoid = npc:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid.Health > 0 then
                 count = count + 1
@@ -97,25 +98,38 @@ local function AttackNPC(npc)
     local attacks = 0
     local maxAttacks = 80
     
-    -- Get very close
-    local closePos = npc.position + Vector3.new(0, 0, 2)
-    hrp.CFrame = CFrame.new(closePos, npc.position)
-    
-    -- Point camera at NPC
-    if npc.rootPart then
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, npc.rootPart.Position)
-    end
-    
     task.wait(0.1)
     
     -- Attack loop
     while npc.humanoid.Health > 0 and attacks < maxAttacks do
         attacks = attacks + 1
         
-        -- Keep facing NPC
-        pcall(function()
-            hrp.CFrame = CFrame.new(hrp.Position, npc.position)
-        end)
+        -- Update NPC position (in case it moved)
+        local currentPos
+        if npc.rootPart and npc.rootPart.Parent then
+            currentPos = npc.rootPart.Position
+        elseif npc.model.PrimaryPart then
+            currentPos = npc.model.PrimaryPart.Position
+        else
+            local part = npc.model:FindFirstChildOfClass("Part")
+            if part then currentPos = part.Position end
+        end
+        
+        if not currentPos then
+            print("  Lost track of NPC!")
+            break
+        end
+        
+        -- Move close to current position
+        local closePos = currentPos + Vector3.new(0, 0, 2)
+        hrp.CFrame = CFrame.new(closePos, currentPos)
+        
+        -- Point camera at NPC
+        if npc.rootPart and npc.rootPart.Parent then
+            pcall(function()
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, npc.rootPart.Position)
+            end)
+        end
         
         -- Spam attacks
         for i = 1, 3 do
