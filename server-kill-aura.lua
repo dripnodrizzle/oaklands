@@ -122,14 +122,9 @@ local auraLoop = task.spawn(function()
             for _, npc in ipairs(npcsInRange) do
                 local startHealth = npc.humanoid.Health
                 
-                -- Face the NPC
+                -- Face the NPC (body only, not camera)
                 pcall(function()
                     hrp.CFrame = CFrame.new(hrp.Position, npc.rootPart.Position)
-                end)
-                
-                -- Point camera at target
-                pcall(function()
-                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, npc.rootPart.Position)
                 end)
                 
                 -- RAPID FIRE attacks
