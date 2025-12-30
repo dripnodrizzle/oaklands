@@ -92,6 +92,8 @@ end
 --> RAYCAST INSPECTOR
 task.spawn(function()
     print("[Raycast] Mouse-over inspection enabled")
+    print("[Raycast] RaycastMode = " .. tostring(_G.RaycastMode))
+    print("[Raycast] HighlightMode = " .. tostring(_G.HighlightMode))
     local lastPrintedObj = nil
     local lastHighlightObj = nil
     local currentHoverObj = nil
@@ -100,42 +102,58 @@ task.spawn(function()
     while true do
         task.wait(0.05)  -- More responsive
         if _G.RaycastMode then
-            local now = tick()
-            
-            local mouse = Player:GetMouse()
-            
-            -- Create raycast from camera through mouse position
-            local unitRay = Camera:ScreenPointToRay(mouse.X, mouse.Y)
-            local raycastParams = RaycastParams.new()
-            raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-            
-            local charTable = {}
-            if Player.Character then
-                table.insert(charTable, Player.Character)
-            end
-            raycastParams.FilterDescendantsInstances = charTable
-            
-            local rayResult = Services.Workspace:Raycast(unitRay.Origin, unitRay.Direction * _G.InspectDistance, raycastParams)
-            
-            if rayResult then
-                local hit = rayResult.Instance
-                local distance = math.floor((rayResult.Position - Camera.CFrame.Position).Magnitude)
+            pcall(function()
+                local now = tick()
                 
-                -- Try to find parent Model
-                local target = hit
-                if hit.Parent and hit.Parent:IsA("Model") then
-                    target = hit.Parent
+                local mouse = Player:GetMouse()
+                
+                -- Create raycast from camera through mouse position
+                local unitRay = Camera:ScreenPointToRay(mouse.X, mouse.Y)
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+                
+                local charTable = {}
+                if Player.Character then
+                    table.insert(charTable, Player.Character)
                 end
+                raycastParams.FilterDescendantsInstances = charTable
                 
-                -- Track hover duration
-                if target ~= currentHoverObj then
-                    currentHoverObj = target
-                    hoverStartTime = now
-                end
+                local rayResult = Services.Workspace:Raycast(unitRay.Origin, unitRay.Direction * _G.InspectDistance, raycastParams)
                 
-                local hoverDuration = now - hoverStartTime
-                -- Only print if it's a new object AND hover delay is met
-                local shouldPrint = (target ~= lastPrintedObj) and (hoverDuration >= (_G.MouseOverDelay or 0.3))
+                if rayResult then
+                    local hit = rayResult.Instance
+                    local distance = math.floor((rayResult.Position - Camera.CFrame.Position).Magnitude)
+                    
+                    -- Try to find parent Model or Character
+                    local target = hit
+                    
+                    -- Check if part belongs to a character/NPC (has Humanoid ancestor)
+                    local checkParent = hit.Parent
+                    while checkParent and checkParent ~= Services.Workspace do
+                        if checkParent:IsA("Model") then
+                            local humanoid = checkParent:FindFirstChildOfClass("Humanoid")
+                            if humanoid then
+                                target = checkParent
+                                break
+                            end
+                        end
+                        checkParent = checkParent.Parent
+                    end
+                    
+                    -- If no humanoid found, just use immediate parent if it's a model
+                    if target == hit and hit.Parent and hit.Parent:IsA("Model") then
+                        target = hit.Parent
+                    end
+                    
+                    -- Track hover duration
+                    if target ~= currentHoverObj then
+                        currentHoverObj = target
+                        hoverStartTime = now
+                    end
+                    
+                    local hoverDuration = now - hoverStartTime
+                    -- Only print if it's a new object AND hover delay is met
+                    local shouldPrint = (target ~= lastPrintedObj) and (hoverDuration >= (_G.MouseOverDelay or 0.3))
                 
                 -- Highlight if enabled
                 if _G.HighlightMode then
@@ -203,13 +221,26 @@ task.spawn(function()
                         info.Attributes = attrCount .. " custom attributes"
                     end
 
-                    -- Check for interactive elements
-                    local clickDetector = target:FindFirstChildOfClass("ClickDetector")
-                    local proximityPrompt = target:FindFirstChildOfClass("ProximityPrompt")
+                    -- Check for interactive elements (check both hit part and target model)
+                    local clickDetector = hit:FindFirstChildOfClass("ClickDetector") or target:FindFirstChildOfClass("ClickDetector")
+                    local proximityPrompt = hit:FindFirstChildOfClass("ProximityPrompt") or target:FindFirstChildOfClass("ProximityPrompt")
+                    
+                    -- Also check descendants for interactions
+                    if not clickDetector then
+                        clickDetector = target:FindFirstChildWhichIsA("ClickDetector", true)
+                    end
+                    if not proximityPrompt then
+                        proximityPrompt = target:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    end
+                    
                     if clickDetector then
                         info.Interaction = "ClickDetector (Clickable)"
+                        info.ClickDistance = string.format("%.1fm", clickDetector.MaxActivationDistance)
                     elseif proximityPrompt then
                         info.Interaction = string.format("ProximityPrompt: %s", proximityPrompt.ActionText)
+                        if proximityPrompt.ObjectText ~= "" then
+                            info.ObjectText = proximityPrompt.ObjectText
+                        end
                     end
 
                     print("\n[RAYCAST] ============================")
@@ -225,6 +256,9 @@ task.spawn(function()
                 if lastHighlightObj then
                     RemoveHighlight(lastHighlightObj)
                     lastHighlightObj = nil
+                end
+            end
+            end)
                 end
             end
         else
