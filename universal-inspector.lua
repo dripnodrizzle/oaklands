@@ -33,6 +33,9 @@ print("_G.FindByClass('ClassName')       -- Find all objects of a class")
 print("_G.GetObjectPath(object)          -- Get full path to object")
 print("_G.ListChildren(object)           -- List all children of object")
 print("_G.ShowProperties(object)         -- Show all properties of object")
+print("_G.ShowStats(object)              -- Show humanoid/object stats")
+print("_G.ShowAttributes(object)         -- Show custom attributes")
+print("_G.ShowActions(object)            -- Show available interactions")
 print("==============================")
 
 --> CONFIGURATION
@@ -141,7 +144,7 @@ task.spawn(function()
                 
                 if shouldPrint then
                     lastPrint = now
-                    
+
                     -- Get additional info
                     local info = {
                         Name = target.Name,
@@ -149,18 +152,55 @@ task.spawn(function()
                         Distance = distance .. "m",
                         Path = target:GetFullName()
                     }
-                    
+
                     -- Add type-specific info
                     if target:IsA("Part") or target:IsA("MeshPart") then
                         info.Size = string.format("%.1f,%.1f,%.1f", target.Size.X, target.Size.Y, target.Size.Z)
                         info.Material = tostring(target.Material)
+                        info.Transparency = target.Transparency
+                        info.CanCollide = tostring(target.CanCollide)
                     elseif target:IsA("Model") then
                         local primPart = target.PrimaryPart
                         if primPart then
                             info.PrimaryPart = primPart.Name
                         end
+                        
+                        -- Check for Humanoid (NPC/Player)
+                        local humanoid = target:FindFirstChildOfClass("Humanoid")
+                        if humanoid then
+                            info.Type = "NPC/Character"
+                            info.Health = string.format("%.1f/%.1f", humanoid.Health, humanoid.MaxHealth)
+                            info.WalkSpeed = humanoid.WalkSpeed
+                            info.JumpPower = humanoid.JumpPower
+                            if humanoid.DisplayName ~= target.Name then
+                                info.DisplayName = humanoid.DisplayName
+                            end
+                        end
+                    elseif target:IsA("Tool") then
+                        info.Type = "Item/Tool"
+                        info.RequiresHandle = tostring(target.RequiresHandle)
+                        if target.ToolTip ~= "" then
+                            info.ToolTip = target.ToolTip
+                        end
                     end
-                    
+
+                    -- Check for attributes
+                    local attrs = target:GetAttributes()
+                    local attrCount = 0
+                    for _ in pairs(attrs) do attrCount = attrCount + 1 end
+                    if attrCount > 0 then
+                        info.Attributes = attrCount .. " custom attributes"
+                    end
+
+                    -- Check for interactive elements
+                    local clickDetector = target:FindFirstChildOfClass("ClickDetector")
+                    local proximityPrompt = target:FindFirstChildOfClass("ProximityPrompt")
+                    if clickDetector then
+                        info.Interaction = "ClickDetector (Clickable)"
+                    elseif proximityPrompt then
+                        info.Interaction = string.format("ProximityPrompt: %s", proximityPrompt.ActionText)
+                    end
+
                     print("\n[RAYCAST] ============================")
                     for key, value in pairs(info) do
                         print(string.format("  %s: %s", key, value))
@@ -370,39 +410,147 @@ _G.ShowProperties = function(obj)
     end
 end
 
---> HELPER: Clear highlights
-_G.ClearHighlights = function()
-    ClearAllHighlights()
-    print("[Inspector] All highlights cleared")
-end
+--> HELPER: Show stats (Humanoids, etc)
+_G.ShowStats = function(obj)
+    if not obj or not obj:IsA("Instance") then
+        print("[STATS] Invalid object")
+        return
+    end
 
---> HELPER: Get game info
-_G.GetGameInfo = function()
-    print("\n[GAME INFO] ============================")
-    print("  Place ID: " .. game.PlaceId)
-    print("  Job ID: " .. (game.JobId or "N/A"))
-    print("  Creator ID: " .. game.CreatorId)
-    print("  Creator Type: " .. tostring(game.CreatorType))
-    if Services.MarketplaceService then
-        local success, info = pcall(function()
-            return Services.MarketplaceService:GetProductInfo(game.PlaceId)
-        end)
-        if success and info then
-            print("  Game Name: " .. (info.Name or "Unknown"))
-            print("  Description: " .. (info.Description or "N/A"):sub(1, 100))
+    print(string.format("[STATS] %s (%s):", obj.Name, obj.ClassName))
+
+    -- Check for Humanoid
+    local humanoid = obj:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        print("  === Humanoid Stats ===")
+        print(string.format("  Health: %.1f / %.1f", humanoid.Health, humanoid.MaxHealth))
+        print(string.format("  WalkSpeed: %.1f", humanoid.WalkSpeed))
+        print(string.format("  JumpPower: %.1f", humanoid.JumpPower))
+        print(string.format("  JumpHeight: %.1f", humanoid.JumpHeight))
+        print(string.format("  DisplayName: %s", humanoid.DisplayName))
+        print(string.format("  Sit: %s", tostring(humanoid.Sit)))
+        print(string.format("  PlatformStand: %s", tostring(humanoid.PlatformStand)))
+        
+        -- Check for custom states
+        local state = humanoid:GetState()
+        print(string.format("  State: %s", tostring(state)))
+    end
+
+    -- Check for Configuration/NumberValue/IntValue stats
+    local config = obj:FindFirstChild("Configuration") or obj:FindFirstChild("Stats")
+    if config then
+        print("  === Custom Stats ===")
+        for _, child in ipairs(config:GetChildren()) do
+            if child:IsA("ValueBase") then
+                print(string.format("  %s: %s", child.Name, tostring(child.Value)))
+            end
         end
     end
-    print("======================================\n")
+
+    -- Check player stats if it's a player character
+    if obj.Name == Player.Name or (obj.Parent and obj.Parent == Services.Workspace) then
+        local player = Players:GetPlayerFromCharacter(obj)
+        if player then
+            print("  === Player Stats ===")
+            print(string.format("  UserId: %d", player.UserId))
+            print(string.format("  AccountAge: %d days", player.AccountAge))
+            
+            local leaderstats = player:FindFirstChild("leaderstats")
+            if leaderstats then
+                print("  === Leaderstats ===")
+                for _, stat in ipairs(leaderstats:GetChildren()) do
+                    if stat:IsA("ValueBase") then
+                        print(string.format("  %s: %s", stat.Name, tostring(stat.Value)))
+                    end
+                end
+            end
+        end
+    end
 end
 
-print("[Universal Inspector] Ready!")
-print("")
-print("===== QUICK START =====")
-print("_G.RaycastMode = true           -- Look at objects to inspect them")
-print("_G.HighlightMode = true         -- Highlight objects you look at")
+--> HELPER: Show custom attributes
+_G.ShowAttributes = function(obj)
+    if not obj or not obj:IsA("Instance") then
+        print("[ATTRIBUTES] Invalid object")
+        return
+    end
+
+    local attrs = obj:GetAttributes()
+    local count = 0
+    for _ in pairs(attrs) do count = count + 1 end
+
+    print(string.format("[ATTRIBUTES] %s has %d custom attributes:", obj.Name, count))
+
+    if count == 0 then
+        print("  (No custom attributes)")
+    else
+        for name, value in pairs(attrs) do
+            local valueStr = tostring(value)
+            if #valueStr > 50 then
+                valueStr = valueStr:sub(1, 50) .. "..."
+            end
+            print(string.format("  %s: %s", name, valueStr))
+        end
+    end
+end
+
+--> HELPER: Show available actions/interactions
+_G.ShowActions = function(obj)
+    if not obj or not obj:IsA("Instance") then
+        print("[ACTIONS] Invalid object")
+        return
+    end
+
+    print(string.format("[ACTIONS] %s (%s):", obj.Name, obj.ClassName))
+    local actionCount = 0
+
+    -- Check for ClickDetector
+    for _, child in ipairs(obj:GetDescendants()) do
+        if child:IsA("ClickDetector") then
+            actionCount = actionCount + 1
+            local parent = child.Parent
+            print(string.format("  [ClickDetector] Clickable: %s", parent.Name))
+            print(string.format("    MaxActivationDistance: %.1f", child.MaxActivationDistance))
+        end
+    end
+
+    -- Check for ProximityPrompt
+    for _, child in ipairs(obj:GetDescendants()) do
+        if child:IsA("ProximityPrompt") then
+            actionCount = actionCount + 1
+            print(string.format("  [ProximityPrompt] %s", child.ActionText))
+            print(string.format("    ObjectText: %s", child.ObjectText))
+            print(string.format("    MaxActivationDistance: %.1f", child.MaxActivationDistance))
+            print(string.format("    KeyboardKeyCode: %s", tostring(child.KeyboardKeyCode)))
+        end
+    end
+
+    -- Check for Tool
+    if obj:IsA("Tool") then
+        actionCount = actionCount + 1
+        print("  [Tool] Equippable item")
+        if obj.ToolTip ~= "" then
+            print(string.format("    ToolTip: %s", obj.ToolTip))
+        end
+    end
+
+    -- Check for Touchable parts
+    if obj:IsA("BasePart") and not obj.CanCollide then
+        actionCount = actionCount + 1
+        print("  [TouchPart] May trigger on touch")
+        print(string.format("    CanCollide: %s", tostring(obj.CanCollide)))
+    end
+
+    if actionCount == 0 then
+        print("  (No interactive elements found)")
+    end
+end
 print("_G.ProximityMode = true         -- List nearby objects every 5s")
 print("_G.InspectObject('part_name')   -- Search for specific object")
 print("_G.FindByClass('Part')          -- Find all objects of a class")
+print("_G.ShowStats(object)            -- Show NPC/character stats")
+print("_G.ShowAttributes(object)       -- Show custom attributes")
+print("_G.ShowActions(object)          -- Show clickable/interactive elements")
 print("_G.GetGameInfo()                -- Show game information")
 print("_G.ClearHighlights()            -- Clear all highlights")
 print("=======================")
