@@ -15,104 +15,127 @@ local WeaponHitted = CombatFolder:FindFirstChild("WeaponHitted")
 local UseSkill = CombatFolder:FindFirstChild("UseSkill")
 local DamagePopup = CombatFolder:FindFirstChild("DamagePopup")
 
-local callLog = {}
+print("[Logger] Found remotes:")
+print("  Attack:", Attack and "✓" or "✗")
+print("  Hitted:", Hitted and "✓" or "✗")
+print("  WeaponHitted:", WeaponHitted and "✓" or "✗")
+print("  UseSkill:", UseSkill and "✓" or "✗")
+print("  DamagePopup:", DamagePopup and "✓" or "✗")
 
--- Helper to serialize values safely
-local function SafeSerialize(value)
-    local t = typeof(value)
-    if t == "Instance" then
-        return string.format("%s (%s)", value.Name, value.ClassName)
-    elseif t == "Vector3" then
-        return string.format("Vector3(%.1f, %.1f, %.1f)", value.X, value.Y, value.Z)
-    elseif t == "table" then
-        local str = "{"
-        local count = 0
-        for k, v in pairs(value) do
-            if count > 0 then str = str .. ", " end
-            str = str .. tostring(k) .. "=" .. tostring(v)
-            count = count + 1
-            if count >= 5 then str = str .. ", ..."; break end
-        end
-        return str .. "}"
-    else
-        return tostring(value)
-    end
-end
-
--- Simple wrapper function
-local function WrapRemote(remote, name)
-    if not remote then return end
-    
-    local originalFire = remote.FireServer
-    
-    remote.FireServer = function(self, ...)
-        local args = {...}
-        
-        -- Log it
-        local logEntry = {
-            remote = name,
-            args = args,
-            time = tick()
-        }
-        table.insert(callLog, logEntry)
-        
-        -- Print it
-        print(string.format("\n[%s] Called!", name))
-        for i, arg in ipairs(args) do
-            print(string.format("  Arg %d: %s", i, SafeSerialize(arg)))
-        end
-        
-        -- Call original
-        return originalFire(self, ...)
-    end
-    
-    print(string.format("[Logger] Wrapped: %s", name))
-end
-
--- Wrap the combat remotes
-WrapRemote(Attack, "Attack")
-WrapRemote(Hitted, "Hitted")
-WrapRemote(WeaponHitted, "WeaponHitted")
-WrapRemote(UseSkill, "UseSkill")
-WrapRemote(DamagePopup, "DamagePopup")
-
--- Monitor NPC health
+-- Monitor NPC health to see when damage occurs
 local function MonitorNPCs()
+    local EntityFolder = Workspace:FindFirstChild("EntityFolder")
+    if not EntityFolder then 
+        warn("[Logger] EntityFolder not found!")
+        return 
+    end
+    
+    print(string.format("[Logger] Monitoring %d NPCs", #EntityFolder:GetChildren()))
+    
+    for _, npc in ipairs(EntityFolder:GetChildren()) do
+        if npc:IsA("Model") then
+            local humanoid = npc:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local lastHealth = humanoid.Health
+                
+                humanoid.HealthChanged:Connect(function(health)
+                    if health < lastHealth then
+                        local damage = lastHealth - health
+                        print(string.format("\n[NPC DAMAGED] %s took %.1f damage! (%.1f/%.1f HP)", 
+                            npc.Name, damage, health, humanoid.MaxHealth))
+                    end
+                    if health <= 0 then
+                        print(string.format("[NPC KILLED] %s died!", npc.Name))
+                    end
+                    lastHealth = health
+                end)
+            end
+        end
+    end
+    
+    -- Monitor new NPCs
+    EntityFolder.ChildAdded:Connect(function(npc)
+        task.wait(0.5)
+        if npc:IsA("Model") then
+            local humanoid = npc:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                print(string.format("[Logger] Now monitoring new NPC: %s", npc.Name))
+                local lastHealth = humanoid.Health
+                
+                humanoid.HealthChanged:Connect(function(health)
+                    if health < lastHealth then
+                        local damage = lastHealth - health
+                        print(string.format("\n[NPC DAMAGED] %s took %.1f damage! (%.1f/%.1f HP)", 
+                            npc.Name, damage, health, humanoid.MaxHealth))
+                    end
+                    if health <= 0 then
+                        print(string.format("[NPC KILLED] %s died!", npc.Name))
+                    end
+                    lastHealth = health
+                end)
+            end
+        end
+    end)
+end
+
+MonitorNPCs()
+
+-- Manual testing functions
+_G.TestAttack = function()
+    print("\n[Test] Calling Attack:FireServer()")
+    Attack:FireServer()
+end
+
+_G.TestHitted = function(npc)
+    if not npc then
+        print("[Test] Usage: _G.TestHitted(workspace.EntityFolder.NPCName)")
+        return
+    end
+    print(string.format("\n[Test] Calling Hitted:FireServer(%s)", npc.Name))
+    Hitted:FireServer(npc)
+end
+
+_G.TestWeaponHitted = function(npc)
+    if not npc then
+        print("[Test] Usage: _G.TestWeaponHitted(workspace.EntityFolder.NPCName)")
+        return
+    end
+    print(string.format("\n[Test] Calling WeaponHitted:FireServer(%s)", npc.Name))
+    WeaponHitted:FireServer(npc)
+end
+
+_G.TestKillAll = function()
+    print("\n[Test] Attempting to kill all NPCs...")
     local EntityFolder = Workspace:FindFirstChild("EntityFolder")
     if not EntityFolder then return end
     
     for _, npc in ipairs(EntityFolder:GetChildren()) do
         if npc:IsA("Model") then
             local humanoid = npc:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.HealthChanged:Connect(function(health)
-                    if health < humanoid.MaxHealth then
-                        print(string.format("[NPC] %s damaged! Health: %.1f", npc.Name, health))
-                    end
-                    if health <= 0 then
-                        print(string.format("[NPC] %s DIED!", npc.Name))
-                    end
-                end)
+            if humanoid and humanoid.Health > 0 then
+                -- Try various patterns
+                pcall(function() Attack:FireServer() end)
+                pcall(function() Attack:FireServer(npc) end)
+                pcall(function() Attack:FireServer(humanoid) end)
+                pcall(function() Hitted:FireServer(npc) end)
+                pcall(function() Hitted:FireServer(humanoid) end)
+                pcall(function() WeaponHitted:FireServer(npc) end)
+                task.wait(0.05)
             end
         end
     end
-end
-
-MonitorNPCs()
-
-_G.ShowCallLog = function()
-    print("\n===== CALL LOG =====")
-    for i = math.max(1, #callLog - 20), #callLog do
-        local log = callLog[i]
-        print(string.format("\n%d. %s:", i, log.remote))
-        for j, arg in ipairs(log.args) do
-            print(string.format("   [%d] %s", j, SafeSerialize(arg)))
-        end
-    end
-    print("\n====================")
+    
+    print("[Test] Attack attempts complete. Check if NPCs took damage.")
 end
 
 print("")
-print("[Logger] Ready! Attack NPCs and watch the output.")
-print("[Logger] Run _G.ShowCallLog() to see all logged calls.")
+print("========== LOGGER READY ==========")
+print("The logger is now monitoring NPC health.")
+print("Attack NPCs and watch for damage messages!")
+print("")
+print("Manual test commands:")
+print("  _G.TestAttack() - Test Attack remote")
+print("  _G.TestHitted(npc) - Test Hitted remote")
+print("  _G.TestKillAll() - Try to kill all NPCs")
+print("==================================")
 print("")
