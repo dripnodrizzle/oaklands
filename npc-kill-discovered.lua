@@ -52,8 +52,22 @@ local hrp = char.HumanoidRootPart
 -- Method 1: Spam Attack near each NPC
 print("[Kill All] Method 1: Spamming Attack remote near NPCs...")
 for i, npc in ipairs(npcs) do
+    -- Get NPC position (compatible with older API)
+    local npcPos
+    if npc.model.PrimaryPart then
+        npcPos = npc.model.PrimaryPart.Position
+    elseif npc.model:FindFirstChild("HumanoidRootPart") then
+        npcPos = npc.model.HumanoidRootPart.Position
+    else
+        local part = npc.model:FindFirstChildOfClass("Part") or npc.model:FindFirstChildOfClass("MeshPart")
+        if part then
+            npcPos = part.Position
+        else
+            continue
+        end
+    end
+    
     -- Teleport near NPC
-    local npcPos = npc.model:GetPivot().Position
     hrp.CFrame = CFrame.new(npcPos + Vector3.new(0, 3, 5))
     
     -- Spam attack
@@ -76,7 +90,20 @@ print("[Kill All] Method 2: Using UseSkill at NPC positions...")
 local remainingNPCs = GetAliveNPCs()
 
 for i, npc in ipairs(remainingNPCs) do
-    local pos = npc.model:GetPivot().Position
+    -- Get position safely
+    local pos
+    if npc.model.PrimaryPart then
+        pos = npc.model.PrimaryPart.Position
+    elseif npc.model:FindFirstChild("HumanoidRootPart") then
+        pos = npc.model.HumanoidRootPart.Position
+    else
+        local part = npc.model:FindFirstChildOfClass("Part")
+        if part then
+            pos = part.Position
+        else
+            continue
+        end
+    end
     
     -- Try different skill IDs that might be AoE damage
     for skillId = 1, 5 do
