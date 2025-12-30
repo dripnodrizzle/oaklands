@@ -29,6 +29,7 @@ print("_G.HighlightMode = true/false     -- Highlight objects on mouse-over")
 print("_G.MouseOverDelay = 0.3           -- Hover delay before showing info")
 print("_G.InspectDistance = 1000         -- Set raycast max distance")
 print("_G.ProximityRadius = 500          -- Set proximity search radius")
+print("_G.ShowBoringParts = false        -- Hide generic parts, focus on NPCs/items/actions")
 print("_G.InspectObject('name')          -- Find and inspect specific object")
 print("_G.FindByClass('ClassName')       -- Find all objects of a class")
 print("_G.GetObjectPath(object)          -- Get full path to object")
@@ -46,6 +47,7 @@ _G.HighlightMode = true  -- Auto-enabled for visual feedback
 _G.InspectDistance = 1000
 _G.ProximityRadius = 500
 _G.MouseOverDelay = 0.3  -- Delay before showing info (seconds)
+_G.ShowBoringParts = false  -- Set true to show generic parts without special properties
 
 --> HIGHLIGHT MANAGEMENT
 local activeHighlights = {}
@@ -87,6 +89,49 @@ local function ClearAllHighlights()
         pcall(function() highlight:Destroy() end)
     end
     activeHighlights = {}
+end
+
+local function IsInterestingObject(obj)
+    if not obj then return false end
+    
+    -- Always show if setting is enabled
+    if _G.ShowBoringParts then return true end
+    
+    -- Check for gameplay-relevant properties
+    if obj:IsA("Model") then
+        -- Has humanoid (NPC/character)
+        if obj:FindFirstChildOfClass("Humanoid") then return true end
+        -- Has primary part (likely important model)
+        if obj.PrimaryPart then return true end
+    end
+    
+    -- Tools/Items
+    if obj:IsA("Tool") or obj:IsA("Accessory") then return true end
+    
+    -- Interactive elements
+    if obj:FindFirstChildWhichIsA("ClickDetector", true) then return true end
+    if obj:FindFirstChildWhichIsA("ProximityPrompt", true) then return true end
+    if obj:FindFirstChildWhichIsA("Attachment", true) then return true end
+    
+    -- Has custom attributes (game-specific data)
+    local attrs = obj:GetAttributes()
+    for _ in pairs(attrs) do return true end
+    
+    -- Has configuration or stats
+    if obj:FindFirstChild("Configuration") or obj:FindFirstChild("Stats") then return true end
+    
+    -- Special part names that might be important
+    if obj:IsA("BasePart") then
+        local name = obj.Name:lower()
+        if name:find("shop") or name:find("buy") or name:find("sell") or 
+           name:find("npc") or name:find("item") or name:find("weapon") or
+           name:find("door") or name:find("chest") or name:find("interact") then
+            return true
+        end
+    end
+    
+    -- Skip generic parts
+    return false
 end
 
 --> RAYCAST INSPECTOR
@@ -145,6 +190,17 @@ task.spawn(function()
                         target = hit.Parent
                     end
                     
+                    -- Skip if not interesting
+                    if not IsInterestingObject(target) then
+                        if lastHighlightObj then
+                            RemoveHighlight(lastHighlightObj)
+                            lastHighlightObj = nil
+                        end
+                        currentHoverObj = nil
+                        lastPrintedObj = nil
+                        return
+                    end
+                    
                     -- Track hover duration
                     if target ~= currentHoverObj then
                         currentHoverObj = target
@@ -197,20 +253,38 @@ task.spawn(function()
                         -- Check for Humanoid (NPC/Player)
                         local humanoid = target:FindFirstChildOfClass("Humanoid")
                         if humanoid then
-                            info.Type = "NPC/Character"
-                            info.Health = string.format("%.1f/%.1f", humanoid.Health, humanoid.MaxHealth)
+                            info.Type = "⚔️ NPC/Character"
+                            info.Health = string.format("%.1f/%.1f (%.0f%%)", humanoid.Health, humanoid.MaxHealth, (humanoid.Health/humanoid.MaxHealth)*100)
                             info.WalkSpeed = humanoid.WalkSpeed
                             info.JumpPower = humanoid.JumpPower
                             if humanoid.DisplayName ~= target.Name then
                                 info.DisplayName = humanoid.DisplayName
                             end
+                            
+                            -- Check for weapons/tools
+                            for _, child in ipairs(target:GetChildren()) do
+                                if child:IsA("Tool") then
+                                    info.Equipped = child.Name
+                                    break
+                                end
+                            end
                         end
                     elseif target:IsA("Tool") then
-                        info.Type = "Item/Tool"
-                        info.RequiresHandle = tostring(target.RequiresHandle)
+                        info.Type = "🗡️ Item/Weapon"
                         if target.ToolTip ~= "" then
-                            info.ToolTip = target.ToolTip
+                            info.Description = target.ToolTip
                         end
+                        -- Check for damage stats
+                        local config = target:FindFirstChild("Configuration")
+                        if config then
+                            for _, stat in ipairs(config:GetChildren()) do
+                                if stat:IsA("NumberValue") or stat:IsA("IntValue") then
+                                    info[stat.Name] = tostring(stat.Value)
+                                end
+                            end
+                        end
+                    elseif target:IsA("Accessory") then
+                        info.Type = "👕 Accessory"
                     end
 
                     -- Check for attributes
@@ -234,13 +308,14 @@ task.spawn(function()
                     end
                     
                     if clickDetector then
-                        info.Interaction = "ClickDetector (Clickable)"
-                        info.ClickDistance = string.format("%.1fm", clickDetector.MaxActivationDistance)
+                        info.Interaction = "🖱️ Clickable"
+                        info.ClickRange = string.format("%.1fm", clickDetector.MaxActivationDistance)
                     elseif proximityPrompt then
-                        info.Interaction = string.format("ProximityPrompt: %s", proximityPrompt.ActionText)
+                        info.Interaction = string.format("💬 %s", proximityPrompt.ActionText)
                         if proximityPrompt.ObjectText ~= "" then
-                            info.ObjectText = proximityPrompt.ObjectText
+                            info.Object = proximityPrompt.ObjectText
                         end
+                        info.PromptRange = string.format("%.1fm", proximityPrompt.MaxActivationDistance)
                     end
 
                     print("\n[RAYCAST] ============================")
@@ -618,8 +693,9 @@ end
 print("[Universal Inspector] Ready!")
 print("")
 print("===== QUICK START =====")
-print("Mouse-over mode is ENABLED by default - just hover over objects!")
+print("Mouse-over mode ENABLED - Focuses on NPCs, items, and interactions!")
 print("_G.MouseOverDelay = 0.1         -- Faster inspection (default: 0.3s)")
+print("_G.ShowBoringParts = true       -- Show ALL parts (default: only game objects)")
 print("_G.RaycastMode = false          -- Disable mouse-over inspection")
 print("_G.HighlightMode = false        -- Disable highlights")
 print("_G.ProximityMode = true         -- List nearby objects every 5s")
