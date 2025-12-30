@@ -259,10 +259,10 @@ task.spawn(function()
                         -- Check for Humanoid (NPC/Player)
                         local humanoid = target:FindFirstChildOfClass("Humanoid")
                         if humanoid then
-                            info.Type = "⚔️ NPC/Character"
+                            info.Type = "[NPC/Character]"
                             info.Health = string.format("%.1f/%.1f (%.0f%%)", humanoid.Health, humanoid.MaxHealth, (humanoid.Health/humanoid.MaxHealth)*100)
-                            info.WalkSpeed = humanoid.WalkSpeed
-                            info.JumpPower = humanoid.JumpPower
+                            info.WalkSpeed = tostring(humanoid.WalkSpeed)
+                            info.JumpPower = tostring(humanoid.JumpPower)
                             if humanoid.DisplayName ~= target.Name then
                                 info.DisplayName = humanoid.DisplayName
                             end
@@ -276,7 +276,7 @@ task.spawn(function()
                             end
                         end
                     elseif target:IsA("Tool") then
-                        info.Type = "🗡️ Item/Weapon"
+                        info.Type = "[Item/Weapon]"
                         if target.ToolTip ~= "" then
                             info.Description = target.ToolTip
                         end
@@ -290,7 +290,7 @@ task.spawn(function()
                             end
                         end
                     elseif target:IsA("Accessory") then
-                        info.Type = "👕 Accessory"
+                        info.Type = "[Accessory]"
                     end
 
                     -- Check for attributes
@@ -324,10 +324,10 @@ task.spawn(function()
                     end
                     
                     if clickDetector then
-                        info.Interaction = "🖱️ Clickable"
+                        info.Interaction = "[Clickable]"
                         info.ClickRange = string.format("%.1fm", clickDetector.MaxActivationDistance)
                     elseif proximityPrompt then
-                        info.Interaction = string.format("💬 %s", proximityPrompt.ActionText)
+                        info.Interaction = string.format("[Prompt] %s", proximityPrompt.ActionText)
                         if proximityPrompt.ObjectText ~= "" then
                             info.Object = proximityPrompt.ObjectText
                         end
