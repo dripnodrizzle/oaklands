@@ -58,6 +58,9 @@ local function SerializeValue(value, depth)
 end
 
 -- Hook all RemoteEvents and RemoteFunctions
+local hookActive = true
+local oldNamecall
+
 local function HookAllRemotes()
     local hookedCount = 0
     
@@ -71,59 +74,66 @@ local function HookAllRemotes()
     
     print(string.format("[Analyzer] Found %d total remotes", #allRemotes))
     
-    -- Hook metamethod
-    local oldNamecall
+    -- Hook metamethod (non-blocking)
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         local method = getnamecallmethod()
         local args = {...}
         
-        if (method == "FireServer" or method == "InvokeServer") and 
+        -- Always call the original first to prevent blocking
+        local result = {oldNamecall(self, ...)}
+        
+        -- Then log if it's a remote we care about
+        if hookActive and (method == "FireServer" or method == "InvokeServer") and 
            (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
             
-            local remotePath = self:GetFullName()
-            
-            -- Count calls
-            remoteCallCount[remotePath] = (remoteCallCount[remotePath] or 0) + 1
-            
-            -- Log the call
-            local logEntry = {
-                name = self.Name,
-                path = remotePath,
-                method = method,
-                args = {},
-                time = os.time(),
-                count = remoteCallCount[remotePath]
-            }
-            
-            -- Serialize arguments
-            for i, arg in ipairs(args) do
-                logEntry.args[i] = {
-                    type = type(arg),
-                    typeof = typeof(arg),
-                    value = SerializeValue(arg)
-                }
-            end
-            
-            table.insert(loggedRemotes, logEntry)
-            
-            -- Print important ones
-            local remoteName = self.Name:lower()
-            if remoteName:find("attack") or remoteName:find("damage") or 
-               remoteName:find("hit") or remoteName:find("combat") or
-               remoteName:find("kill") or remoteName:find("fight") then
-                
-                print(string.format("\n[IMPORTANT] %s:%s", self.Name, method))
-                print(string.format("  Path: %s", remotePath))
-                print(string.format("  Call #%d", logEntry.count))
-                print("  Arguments:")
-                for i, arg in ipairs(logEntry.args) do
-                    print(string.format("    [%d] %s (%s) = %s", i, arg.type, arg.typeof, arg.value))
-                end
-                print("")
-            end
+            task.spawn(function()
+                pcall(function()
+                    local remotePath = self:GetFullName()
+                    
+                    -- Count calls
+                    remoteCallCount[remotePath] = (remoteCallCount[remotePath] or 0) + 1
+                    
+                    -- Log the call
+                    local logEntry = {
+                        name = self.Name,
+                        path = remotePath,
+                        method = method,
+                        args = {},
+                        time = os.time(),
+                        count = remoteCallCount[remotePath]
+                    }
+                    
+                    -- Serialize arguments
+                    for i, arg in ipairs(args) do
+                        logEntry.args[i] = {
+                            type = type(arg),
+                            typeof = typeof(arg),
+                            value = SerializeValue(arg)
+                        }
+                    end
+                    
+                    table.insert(loggedRemotes, logEntry)
+                    
+                    -- Print important ones
+                    local remoteName = self.Name:lower()
+                    if remoteName:find("attack") or remoteName:find("damage") or 
+                       remoteName:find("hit") or remoteName:find("combat") or
+                       remoteName:find("kill") or remoteName:find("fight") then
+                        
+                        print(string.format("\n[IMPORTANT] %s:%s", self.Name, method))
+                        print(string.format("  Path: %s", remotePath))
+                        print(string.format("  Call #%d", logEntry.count))
+                        print("  Arguments:")
+                        for i, arg in ipairs(logEntry.args) do
+                            print(string.format("    [%d] %s (%s) = %s", i, arg.type, arg.typeof, arg.value))
+                        end
+                        print("")
+                    end
+                end)
+            end)
         end
         
-        return oldNamecall(self, ...)
+        return unpack(result)
     end)
     
     print("[Analyzer] Hooked all remote calls!")
@@ -191,6 +201,15 @@ _G.ShowRemoteReport = function()
     print("\n========================================")
 end
 
+-- Toggle hook on/off
+_G.ToggleAnalyzer = function()
+    hookActive = not hookActive
+    print(string.format("[Analyzer] Hook is now %s", hookActive and "ENABLED" or "DISABLED"))
+    if not hookActive then
+        print("[Analyzer] Your UI should work normally now")
+    end
+end
+
 -- Start monitoring
 HookAllRemotes()
 MonitorNPCs()
@@ -200,6 +219,7 @@ print("========== ANALYZER READY ==========")
 print("1. Attack some NPCs now")
 print("2. Watch the console for [IMPORTANT] remote calls")
 print("3. Run: _G.ShowRemoteReport() for full analysis")
-print("4. All remote calls are being logged")
+print("4. Run: _G.ToggleAnalyzer() to disable/enable hook")
+print("5. If buttons don't work, run: _G.ToggleAnalyzer()")
 print("====================================")
 print("")
