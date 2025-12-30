@@ -23,9 +23,10 @@ local RunService = Services.RunService
 
 print("[Universal Inspector] Loaded - Works on ANY game")
 print("===== INSPECTOR COMMANDS =====")
-print("_G.RaycastMode = true/false       -- Enable/disable raycast (look at items)")
+print("_G.RaycastMode = true/false       -- Enable/disable mouse-over inspection")
 print("_G.ProximityMode = true/false     -- Enable/disable proximity (nearby items)")
-print("_G.HighlightMode = true/false     -- Highlight looked-at objects")
+print("_G.HighlightMode = true/false     -- Highlight objects on mouse-over")
+print("_G.MouseOverDelay = 0.3           -- Hover delay before showing info")
 print("_G.InspectDistance = 1000         -- Set raycast max distance")
 print("_G.ProximityRadius = 500          -- Set proximity search radius")
 print("_G.InspectObject('name')          -- Find and inspect specific object")
@@ -39,11 +40,12 @@ print("_G.ShowActions(object)            -- Show available interactions")
 print("==============================")
 
 --> CONFIGURATION
-_G.RaycastMode = false
+_G.RaycastMode = true  -- Auto-enabled for mouse-over inspection
 _G.ProximityMode = false
-_G.HighlightMode = false
+_G.HighlightMode = true  -- Auto-enabled for visual feedback
 _G.InspectDistance = 1000
 _G.ProximityRadius = 500
+_G.MouseOverDelay = 0.3  -- Delay before showing info (seconds)
 
 --> HIGHLIGHT MANAGEMENT
 local activeHighlights = {}
@@ -89,17 +91,16 @@ end
 
 --> RAYCAST INSPECTOR
 task.spawn(function()
-    print("[Raycast] Mode initialized")
-    local lastPrint = 0
+    print("[Raycast] Mouse-over inspection enabled")
+    local lastPrintedObj = nil
     local lastHighlightObj = nil
-    
+    local currentHoverObj = nil
+    local hoverStartTime = 0
+
     while true do
-        task.wait(0.1)
+        task.wait(0.05)  -- More responsive
         if _G.RaycastMode then
             local now = tick()
-            
-            -- Print every 0.5s to avoid spam
-            local shouldPrint = (now - lastPrint >= 0.5)
             
             local mouse = Player:GetMouse()
             
@@ -126,6 +127,16 @@ task.spawn(function()
                     target = hit.Parent
                 end
                 
+                -- Track hover duration
+                if target ~= currentHoverObj then
+                    currentHoverObj = target
+                    hoverStartTime = now
+                end
+                
+                local hoverDuration = now - hoverStartTime
+                -- Only print if it's a new object AND hover delay is met
+                local shouldPrint = (target ~= lastPrintedObj) and (hoverDuration >= (_G.MouseOverDelay or 0.3))
+                
                 -- Highlight if enabled
                 if _G.HighlightMode then
                     if target ~= lastHighlightObj then
@@ -143,7 +154,7 @@ task.spawn(function()
                 end
                 
                 if shouldPrint then
-                    lastPrint = now
+                    lastPrintedObj = target
 
                     -- Get additional info
                     local info = {
@@ -208,13 +219,12 @@ task.spawn(function()
                     print("======================================\n")
                 end
             else
+                currentHoverObj = nil
+                hoverStartTime = 0
+                lastPrintedObj = nil
                 if lastHighlightObj then
                     RemoveHighlight(lastHighlightObj)
                     lastHighlightObj = nil
-                end
-                if shouldPrint then
-                    lastPrint = now
-                    print("[RAYCAST] Nothing in view")
                 end
             end
         else
@@ -545,6 +555,39 @@ _G.ShowActions = function(obj)
         print("  (No interactive elements found)")
     end
 end
+
+--> HELPER: Clear highlights
+_G.ClearHighlights = function()
+    ClearAllHighlights()
+    print("[Inspector] All highlights cleared")
+end
+
+--> HELPER: Get game info
+_G.GetGameInfo = function()
+    print("\n[GAME INFO] ============================")
+    print("  Place ID: " .. game.PlaceId)
+    print("  Job ID: " .. (game.JobId or "N/A"))
+    print("  Creator ID: " .. game.CreatorId)
+    print("  Creator Type: " .. tostring(game.CreatorType))
+    if Services.MarketplaceService then
+        local success, info = pcall(function()
+            return Services.MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+        if success and info then
+            print("  Game Name: " .. (info.Name or "Unknown"))
+            print("  Description: " .. (info.Description or "N/A"):sub(1, 100))
+        end
+    end
+    print("======================================\n")
+end
+
+print("[Universal Inspector] Ready!")
+print("")
+print("===== QUICK START =====")
+print("Mouse-over mode is ENABLED by default - just hover over objects!")
+print("_G.MouseOverDelay = 0.1         -- Faster inspection (default: 0.3s)")
+print("_G.RaycastMode = false          -- Disable mouse-over inspection")
+print("_G.HighlightMode = false        -- Disable highlights")
 print("_G.ProximityMode = true         -- List nearby objects every 5s")
 print("_G.InspectObject('part_name')   -- Search for specific object")
 print("_G.FindByClass('Part')          -- Find all objects of a class")
