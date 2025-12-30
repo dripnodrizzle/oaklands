@@ -1,13 +1,13 @@
---> NPC Click Killer
---> Kills any NPC in Workspace.EntityFolder when clicked
+--> NPC One-Hit Kill
+--> Any NPC in Workspace.EntityFolder dies instantly when taking any damage
 
-print("[NPC Click Killer] Starting...")
+print("[NPC One-Hit Kill] Starting...")
 
 local Workspace = game:GetService("Workspace")
 local EntityFolder = Workspace:WaitForChild("EntityFolder", 10)
 
 if not EntityFolder then
-    warn("[NPC Click Killer] EntityFolder not found in Workspace!")
+    warn("[NPC One-Hit Kill] EntityFolder not found in Workspace!")
     return
 end
 
@@ -17,30 +17,25 @@ local function SetupNPC(npc)
     local humanoid = npc:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
     
-    -- Find a part to attach the ClickDetector to
-    local primaryPart = npc.PrimaryPart or npc:FindFirstChildOfClass("Part") or npc:FindFirstChildOfClass("MeshPart")
-    if not primaryPart then return end
+    -- Track last health to detect damage
+    local lastHealth = humanoid.Health
+    local isDying = false
     
-    -- Check if already has a click detector
-    local existingCD = primaryPart:FindFirstChildOfClass("ClickDetector")
-    if existingCD then
-        existingCD:Destroy()
-    end
-    
-    -- Create ClickDetector
-    local clickDetector = Instance.new("ClickDetector")
-    clickDetector.MaxActivationDistance = 32
-    clickDetector.Parent = primaryPart
-    
-    -- Connect click event
-    clickDetector.MouseClick:Connect(function(player)
-        if humanoid and humanoid.Health > 0 then
-            print(string.format("[NPC Click Killer] %s killed %s", player.Name, npc.Name))
+    -- Listen for health changes
+    humanoid.HealthChanged:Connect(function(newHealth)
+        if isDying then return end
+        
+        -- If health decreased (took damage), kill instantly
+        if newHealth < lastHealth and newHealth > 0 then
+            isDying = true
+            print(string.format("[NPC One-Hit Kill] %s took damage - killing instantly", npc.Name))
             humanoid.Health = 0
         end
+        
+        lastHealth = newHealth
     end)
     
-    print(string.format("[NPC Click Killer] Setup click detector on %s", npc.Name))
+    print(string.format("[NPC One-Hit Kill] Monitoring %s for damage", npc.Name))
 end
 
 -- Setup existing NPCs
@@ -54,5 +49,5 @@ EntityFolder.ChildAdded:Connect(function(npc)
     SetupNPC(npc)
 end)
 
-print("[NPC Click Killer] Ready! Click any NPC to kill it instantly.")
-print("[NPC Click Killer] Monitoring " .. #EntityFolder:GetChildren() .. " NPCs")
+print("[NPC One-Hit Kill] Ready! Any damage to NPCs will kill them instantly.")
+print("[NPC One-Hit Kill] Monitoring " .. #EntityFolder:GetChildren() .. " NPCs")
