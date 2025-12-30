@@ -198,18 +198,16 @@ task.spawn(function()
                         end
                         currentHoverObj = nil
                         lastPrintedObj = nil
-                        return
-                    end
-                    
-                    -- Track hover duration
-                    if target ~= currentHoverObj then
-                        currentHoverObj = target
-                        hoverStartTime = now
-                    end
-                    
-                    local hoverDuration = now - hoverStartTime
-                    -- Only print if it's a new object AND hover delay is met
-                    local shouldPrint = (target ~= lastPrintedObj) and (hoverDuration >= (_G.MouseOverDelay or 0.3))
+                    else
+                        -- Track hover duration
+                        if target ~= currentHoverObj then
+                            currentHoverObj = target
+                            hoverStartTime = now
+                        end
+                        
+                        local hoverDuration = now - hoverStartTime
+                        -- Only print if it's a new object AND hover delay is met
+                        local shouldPrint = (target ~= lastPrintedObj) and (hoverDuration >= (_G.MouseOverDelay or 0.3))
                 
                 -- Highlight if enabled
                 if _G.HighlightMode then
@@ -323,6 +321,7 @@ task.spawn(function()
                         print(string.format("  %s: %s", key, value))
                     end
                     print("======================================\n")
+                    end
                 end
             else
                 currentHoverObj = nil
@@ -334,8 +333,6 @@ task.spawn(function()
                 end
             end
             end)
-                end
-            end
         else
             -- Clean up highlight when raycast disabled
             if lastHighlightObj then
