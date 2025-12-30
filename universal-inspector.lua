@@ -208,36 +208,36 @@ task.spawn(function()
                         local hoverDuration = now - hoverStartTime
                         -- Only print if it's a new object AND hover delay is met
                         local shouldPrint = (target ~= lastPrintedObj) and (hoverDuration >= (_G.MouseOverDelay or 0.3))
-                
-                -- Highlight if enabled
-                if _G.HighlightMode then
-                    if target ~= lastHighlightObj then
-                        if lastHighlightObj then
-                            RemoveHighlight(lastHighlightObj)
+                        
+                        -- Highlight if enabled
+                        if _G.HighlightMode then
+                            if target ~= lastHighlightObj then
+                                if lastHighlightObj then
+                                    RemoveHighlight(lastHighlightObj)
+                                end
+                                CreateHighlight(target)
+                                lastHighlightObj = target
+                            end
+                        else
+                            if lastHighlightObj then
+                                RemoveHighlight(lastHighlightObj)
+                                lastHighlightObj = nil
+                            end
                         end
-                        CreateHighlight(target)
-                        lastHighlightObj = target
-                    end
-                else
-                    if lastHighlightObj then
-                        RemoveHighlight(lastHighlightObj)
-                        lastHighlightObj = nil
-                    end
-                end
-                
-                if shouldPrint then
-                    lastPrintedObj = target
+                        
+                        if shouldPrint then
+                            lastPrintedObj = target
 
-                    -- Get additional info
-                    local info = {
-                        Name = target.Name,
-                        Class = target.ClassName,
-                        Distance = distance .. "m",
-                        Path = target:GetFullName()
-                    }
+                            -- Get additional info
+                            local info = {
+                                Name = target.Name,
+                                Class = target.ClassName,
+                                Distance = distance .. "m",
+                                Path = target:GetFullName()
+                            }
 
-                    -- Add type-specific info
-                    if target:IsA("Part") or target:IsA("MeshPart") then
+                            -- Add type-specific info
+                            if target:IsA("Part") or target:IsA("MeshPart") then
                         info.Size = string.format("%.1f,%.1f,%.1f", target.Size.X, target.Size.Y, target.Size.Z)
                         info.Material = tostring(target.Material)
                         info.Transparency = target.Transparency
@@ -321,17 +321,17 @@ task.spawn(function()
                         print(string.format("  %s: %s", key, value))
                     end
                     print("======================================\n")
+                        end
+                    end
+                else
+                    currentHoverObj = nil
+                    hoverStartTime = 0
+                    lastPrintedObj = nil
+                    if lastHighlightObj then
+                        RemoveHighlight(lastHighlightObj)
+                        lastHighlightObj = nil
                     end
                 end
-            else
-                currentHoverObj = nil
-                hoverStartTime = 0
-                lastPrintedObj = nil
-                if lastHighlightObj then
-                    RemoveHighlight(lastHighlightObj)
-                    lastHighlightObj = nil
-                end
-            end
             end)
         else
             -- Clean up highlight when raycast disabled
