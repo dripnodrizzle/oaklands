@@ -17,9 +17,9 @@ if not EntityFolder then
 end
 
 -- Settings
-local AURA_RADIUS = 35 -- studs
+local AURA_RADIUS = 10 -- studs
 local ATTACKS_PER_TICK = 20 -- attacks per NPC per tick
-local TICK_RATE = 0.05 -- seconds between ticks
+local TICK_RATE = 0.08 -- seconds between ticks (slowed down slightly)
 local SHOW_VISUAL = true
 
 -- Get character
