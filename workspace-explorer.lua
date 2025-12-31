@@ -28,14 +28,17 @@ local function ListChildren(parent, indent, maxDepth, currentDepth)
         local className = child.ClassName
         local name = child.Name
         
+        -- Skip parts (but keep Models)
+        if child:IsA("BasePart") and not child:IsA("Model") then
+            continue
+        end
+        
         -- Color-code by type
         local icon = ""
         if child:IsA("Folder") then
             icon = "📁"
         elseif child:IsA("Model") then
             icon = "🎭"
-        elseif child:IsA("Part") or child:IsA("MeshPart") then
-            icon = "🟦"
         elseif child:IsA("Script") or child:IsA("LocalScript") then
             icon = "📜"
         elseif child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
