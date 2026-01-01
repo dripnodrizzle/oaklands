@@ -49,20 +49,22 @@ end)
 -- Continuously prevent falling
 local antiKnockback = RunService.Heartbeat:Connect(function()
     if humanoid and humanoid.Parent then
-        -- Keep humanoid standing
-        if humanoid:GetState() == Enum.HumanoidStateType.FallingDown or 
-           humanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
+        -- Check if being knocked down
+        local state = humanoid:GetState()
+        if state == Enum.HumanoidStateType.FallingDown or 
+           state == Enum.HumanoidStateType.Ragdoll then
             humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            
+            -- Only correct rotation when actually knocked down
+            if hrp and hrp.Parent then
+                local pos = hrp.Position
+                local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
+                -- Reset tilt/roll but keep turning direction
+                hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
+            end
         end
-        humanoid.PlatformStand = false
         
-        -- Keep character upright (remove tilt/roll but preserve rotation)
-        if hrp and hrp.Parent then
-            local pos = hrp.Position
-            local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
-            -- Only reset X and Z rotation (tilt/roll), keep Y rotation (turning)
-            hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
-        end
+        humanoid.PlatformStand = false
     end
 end)
 
