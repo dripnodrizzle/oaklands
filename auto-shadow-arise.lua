@@ -27,15 +27,24 @@ local Config = {
     AutoArise = true,           -- Automatically arise all defeated enemies
     AriseDelay = 0.1,           -- Delay between arise attempts (seconds)
     MaxDistance = 100,          -- Max distance to arise from (studs)
-    DebugMode = true,           -- Show debug messages
-    CheckInterval = 1,          -- How often to check for defeated enemies (seconds)
+    DebugMode = false,          -- Show debug messages (set to true for verbose output)
+    CheckInterval = 2,          -- How often to check for defeated enemies (seconds)
+    ShowSummary = true,         -- Show periodic summary instead of spam
 }
 
 local arisenEnemies = {}  -- Track enemies we've already arisen
+local totalArisen = 0     -- Total shadows arisen this session
 
 -- Debug print
 local function debugPrint(message)
     if Config.DebugMode then
+        print("[Auto-Arise] " .. message)
+    end
+end
+
+-- Summary print (less spam)
+local function summaryPrint(message)
+    if Config.ShowSummary then
         print("[Auto-Arise] " .. message)
     end
 end
@@ -96,6 +105,7 @@ local function ariseShadow(enemy)
     
     if success then
         arisenEnemies[enemy] = true
+        totalArisen = totalArisen + 1
         debugPrint("✓ Arose shadow from: " .. enemy.Name)
         
         -- Clean up tracking after 30 seconds
@@ -105,23 +115,40 @@ local function ariseShadow(enemy)
         
         return true
     else
-        warn("[ERROR] Failed to arise shadow: " .. tostring(err))
+        if Config.DebugMode then
+            warn("[ERROR] Failed to arise shadow: " .. tostring(err))
+        end
         return false
     end
 end
 
 -- Auto-arise loop
 local function autoAriseLoop()
+    local lastSummary = tick()
+    
     while Config.AutoArise do
         local enemies = findDefeatedEnemies()
         
         if #enemies > 0 then
             debugPrint("Found " .. #enemies .. " defeated enemies to arise")
             
+            local arisenThisCheck = 0
             for _, enemy in pairs(enemies) do
-                ariseShadow(enemy)
+                if ariseShadow(enemy) then
+                    arisenThisCheck = arisenThisCheck + 1
+                end
                 wait(Config.AriseDelay)
             end
+            
+            if arisenThisCheck > 0 and Config.ShowSummary then
+                summaryPrint("👻 Arose " .. arisenThisCheck .. " shadow(s) | Total: " .. totalArisen)
+            end
+        end
+        
+        -- Show periodic summary every 30 seconds
+        if Config.ShowSummary and tick() - lastSummary >= 30 then
+            summaryPrint("📊 Session: " .. totalArisen .. " shadows arisen")
+            lastSummary = tick()
         end
         
         wait(Config.CheckInterval)
@@ -130,7 +157,7 @@ end
 
 -- Start auto-arise
 if Config.AutoArise then
-    debugPrint("Auto-Arise enabled! Starting loop...")
+    summaryPrint("Auto-Arise enabled! 👻")
     task.spawn(autoAriseLoop)
 end
 
@@ -150,35 +177,49 @@ end
 
 _G.AriseAll = function()
     local enemies = findDefeatedEnemies()
-    debugPrint("Arising " .. #enemies .. " shadows...")
+    print("[Auto-Arise] Arising " .. #enemies .. " shadows...")
     
+    local count = 0
     for _, enemy in pairs(enemies) do
-        ariseShadow(enemy)
+        if ariseShadow(enemy) then
+            count = count + 1
+        end
         wait(Config.AriseDelay)
     end
+    
+    print("[Auto-Arise] ✓ Arose " .. count .. " shadows!")
 end
 
 _G.ToggleAutoArise = function()
     Config.AutoArise = not Config.AutoArise
-    debugPrint("Auto-Arise " .. (Config.AutoArise and "ENABLED" or "DISABLED"))
+    print("[Auto-Arise] " .. (Config.AutoArise and "ENABLED ✓" or "DISABLED ✗"))
     
     if Config.AutoArise then
         task.spawn(autoAriseLoop)
     end
 end
 
-_G.SetAriseDistance = function(distance)
-    Config.MaxDistance = distance
-    debugPrint("Max arise distance set to: " .. distance .. " studs")
+_G.ToggleDebug = function()
+    Config.DebugMode = not Config.DebugMode
+    print("[Auto-Arise] Debug mode " .. (Config.DebugMode and "ON" or "OFF"))
 end
 
-_G.FindDefeated = function()
-    local enemies = findDefeatedEnemies()
-    print("=== Defeated Enemies ===")
-    for i, enemy in pairs(enemies) do
-        local rootPart = enemy:FindFirstChild("HumanoidRootPart")
-        local distance = rootPart and (rootPart.Position - getPlayerPosition()).Magnitude or "?"
-        print(string.format("[%d] %s (%.1f studs away)", i, enemy.Name, distance))
+_G.SetAriseDistance = function(distance)
+    Config.MaxDistance = distance
+    print("[Auto-Arise] Max distance: " .. distance .. " studs")
+end
+
+_G.GetAriseStats = function()
+    print("[Auto-Arise] === Session Stats ===")
+    print("  Total shadows arisen: " .. totalArisen)
+    print("  Auto-arise: " .. (Config.AutoArise and "ON" or "OFF"))
+    print("  Max distance: " .. Config.MaxDistance .. " studs")
+    print("  Check interval: " .. Config.CheckInterval .. "s")
+print("[Auto-Arise] ✓ Script loaded!")
+print("  Auto-arise: " .. (Config.AutoArise and "ENABLED" or "DISABLED"))
+print("  Max distance: " .. Config.MaxDistance .. " studs")
+print("")
+print("Commands: _G.AriseAll() | _G.ToggleAutoArise() | _G.GetAriseStats() | _G.ToggleDebug()", i, enemy.Name, distance))
     end
     print("Total: " .. #enemies)
 end
