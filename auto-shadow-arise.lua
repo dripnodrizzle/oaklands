@@ -215,22 +215,28 @@ _G.GetAriseStats = function()
     print("  Auto-arise: " .. (Config.AutoArise and "ON" or "OFF"))
     print("  Max distance: " .. Config.MaxDistance .. " studs")
     print("  Check interval: " .. Config.CheckInterval .. "s")
-print("[Auto-Arise] ✓ Script loaded!")
-print("  Auto-arise: " .. (Config.AutoArise and "ENABLED" or "DISABLED"))
-print("  Max distance: " .. Config.MaxDistance .. " studs")
-print("")
-print("Commands: _G.AriseAll() | _G.ToggleAutoArise() | _G.GetAriseStats() | _G.ToggleDebug()", i, enemy.Name, distance))
+end
+
+_G.FindDefeated = function()
+    local enemies = findDefeatedEnemies()
+    print("[Auto-Arise] Found " .. #enemies .. " defeated enemies:")
+    for i, enemy in pairs(enemies) do
+        local distance = (enemy:FindFirstChild("HumanoidRootPart").Position - getPlayerPosition()).Magnitude
+        print(string.format("  [%d] %s (%.1f studs)", i, enemy.Name, distance))
     end
     print("Total: " .. #enemies)
 end
 
-debugPrint("Script loaded successfully!")
-debugPrint("Auto-Arise is " .. (Config.AutoArise and "ENABLED" or "DISABLED"))
+
+print("[Auto-Arise] ✓ Script loaded!")
+print("  Auto-arise: " .. (Config.AutoArise and "ENABLED" or "DISABLED"))
+print("  Max distance: " .. Config.MaxDistance .. " studs")
 print("")
 print("=== Commands ===")
 print("  _G.AriseAll() - Arise all nearby defeated enemies")
 print("  _G.AriseShadow(target) - Arise specific enemy")
 print("  _G.ToggleAutoArise() - Toggle auto-arise on/off")
 print("  _G.SetAriseDistance(studs) - Set max arise distance")
+print("  _G.GetAriseStats() - Show session statistics")
 print("  _G.FindDefeated() - List all defeated enemies")
 print("")
