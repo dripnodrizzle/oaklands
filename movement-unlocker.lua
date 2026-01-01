@@ -65,6 +65,7 @@ local function fixRun()
     if wasDisabled or Config.ForceRunEnabled then
         pcall(function()
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
         end)
         return wasDisabled
     end
@@ -123,8 +124,33 @@ end
 local function monitorMovement()
     if not Config.AutoFix then return end
     
-    local jumpFixed = fixJump()
-    local runFixed = fixRun()
+    local humanoid = getHumanoid()
+    if not humanoid then return end
+    
+    -- Force check and re-enable running states more aggressively
+    local jumpFixed = false
+    local runFixed = false
+    
+    if not humanoid:GetStateEnabled(Enum.HumanoidStateType.Jumping) then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+        jumpFixed = true
+    end
+    
+    if not humanoid:GetStateEnabled(Enum.HumanoidStateType.Running) then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+        runFixed = true
+    end
+    
+    if not humanoid:GetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics) then
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
+        runFixed = true
+    end
+    
+    -- Also check walkspeed
+    if humanoid.WalkSpeed <= 0 then
+        humanoid.WalkSpeed = 16
+        runFixed = true
+    end
     
     if jumpFixed or runFixed then
         fixCount = fixCount + 1
