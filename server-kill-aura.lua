@@ -56,10 +56,12 @@ local antiKnockback = RunService.Heartbeat:Connect(function()
         end
         humanoid.PlatformStand = false
         
-        -- Keep character upright
+        -- Keep character upright (remove tilt/roll but preserve rotation)
         if hrp and hrp.Parent then
             local pos = hrp.Position
-            hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, hrp.CFrame:ToEulerAnglesYXZ(), 0)
+            local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
+            -- Only reset X and Z rotation (tilt/roll), keep Y rotation (turning)
+            hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
         end
     end
 end)
