@@ -30,6 +30,39 @@ if not char or not char:FindFirstChild("HumanoidRootPart") then
 end
 
 local hrp = char.HumanoidRootPart
+local humanoid = char:FindFirstChildOfClass("Humanoid")
+
+if not humanoid then
+    warn("[Server Kill Aura] Humanoid not found!")
+    return
+end
+
+-- Anti-knockback setup - keep player standing
+humanoid.PlatformStand = false
+pcall(function()
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
+    humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+end)
+
+-- Continuously prevent falling
+local antiKnockback = RunService.Heartbeat:Connect(function()
+    if humanoid and humanoid.Parent then
+        -- Keep humanoid standing
+        if humanoid:GetState() == Enum.HumanoidStateType.FallingDown or 
+           humanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        end
+        humanoid.PlatformStand = false
+        
+        -- Keep character upright
+        if hrp and hrp.Parent then
+            local pos = hrp.Position
+            hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, hrp.CFrame:ToEulerAnglesYXZ(), 0)
+        end
+    end
+end)
 
 -- Get combat remotes
 local CombatRemotes = ReplicatedStorage.Events.Combat
@@ -176,6 +209,21 @@ end)
 -- Cleanup function
 _G.StopServerAura = function()
     running = false
+    
+    -- Disconnect anti-knockback
+    if antiKnockback then
+        antiKnockback:Disconnect()
+    end
+    
+    -- Re-enable normal states
+    if humanoid and humanoid.Parent then
+        pcall(function()
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Flying, true)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, true)
+        end)
+    end
     
     if auraVisual then
         auraVisual:Destroy()
