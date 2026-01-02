@@ -105,42 +105,47 @@ local function serverLog(str)
     end
 end
 
-local function hookClientServerCommunication()
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    
-    if not LocalPlayer then
-        warn("LocalPlayer not found")
-        return
-    end
-    
-    local PlayerScripts = LocalPlayer:WaitForChild("PlayerScripts", 5)
-    if not PlayerScripts then
-        warn("PlayerScripts not found")
-        return
-    end
-    
-    local RbxEvent = PlayerScripts:FindFirstChild("RbxEvent")
-    if not RbxEvent then
-        warn("RbxEvent not found in PlayerScripts")
-        return
-    end
-    
-    local success, err = pcall(function()
-        local oldSendToServer = RbxEvent.SendToServer
-        
-        function RbxEvent:SendToServer(...)
-            serverLog(formatArgs(...))
-            local results = {oldSendToServer(self, ...)}
+local function hookRemote(remote)
+    if remote:IsA("RemoteEvent") then
+        local oldFireServer = remote.FireServer
+        remote.FireServer = function(self, ...)
+            serverLog(remote.Name .. " " .. formatArgs(...))
+            return oldFireServer(self, ...)
+        end
+    elseif remote:IsA("RemoteFunction") then
+        local oldInvokeServer = remote.InvokeServer
+        remote.InvokeServer = function(self, ...)
+            serverLog(remote.Name .. " " .. formatArgs(...))
+            local results = {oldInvokeServer(self, ...)}
             return table.unpack(results)
         end
-    end)
-    
-    if success then
-        log("Successfully hooked client-server communication")
-    else
-        warn("Failed to hook communication: " .. tostring(err))
     end
 end
 
-hookClientServerCommunication()
+local function hookAllRemotes()
+    local hooked = 0
+    
+    -- Hook existing remotes
+    for _, remote in pairs(game:GetDescendants()) do
+        if (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) and remote.Parent then
+            pcall(function()
+                hookRemote(remote)
+                hooked = hooked + 1
+            end)
+        end
+    end
+    
+    -- Hook new remotes as they're added
+    game.DescendantAdded:Connect(function(remote)
+        if (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) and remote.Parent then
+            task.wait(0.1)
+            pcall(function()
+                hookRemote(remote)
+            end)
+        end
+    end)
+    
+    log("Hooked " .. hooked .. " remotes. Monitoring for client->server communication...")
+end
+
+hookAllRemotes()
