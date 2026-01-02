@@ -45,28 +45,33 @@ mt.__namecall = newcclosure(function(self, ...)
         print("Time: " .. os.date("%X"))
         print("Arguments count: " .. #args)
         
-        for i, arg in ipairs(args) do
-            local argType = typeof(arg)
-            local argValue
-            
-            if argType == "Instance" then
-                argValue = string.format("Instance: %s (%s)", arg.Name, arg.ClassName)
-                print(string.format("  [%d] %s", i, argValue))
-                print(string.format("      Path: %s", arg:GetFullName()))
-            elseif argType == "Vector3" then
-                argValue = string.format("Vector3.new(%.2f, %.2f, %.2f)", arg.X, arg.Y, arg.Z)
-                print(string.format("  [%d] %s", i, argValue))
-            elseif argType == "CFrame" then
-                local pos = arg.Position
-                argValue = string.format("CFrame.new(%.2f, %.2f, %.2f, ...)", pos.X, pos.Y, pos.Z)
-                print(string.format("  [%d] %s", i, argValue))
-            elseif argType == "table" then
-                print(string.format("  [%d] table:", i))
-                for k, v in pairs(arg) do
-                    print(string.format("      [%s] = %s (%s)", tostring(k), tostring(v), typeof(v)))
+        if #args == 0 then
+            print("  >> NO ARGUMENTS! Attack is called with no parameters.")
+            print("  >> This means mining/attacking uses TARGET SELECTION, not arguments.")
+        else
+            for i, arg in ipairs(args) do
+                local argType = typeof(arg)
+                local argValue
+                
+                if argType == "Instance" then
+                    argValue = string.format("Instance: %s (%s)", arg.Name, arg.ClassName)
+                    print(string.format("  [%d] %s", i, argValue))
+                    print(string.format("      Path: %s", arg:GetFullName()))
+                elseif argType == "Vector3" then
+                    argValue = string.format("Vector3.new(%.2f, %.2f, %.2f)", arg.X, arg.Y, arg.Z)
+                    print(string.format("  [%d] %s", i, argValue))
+                elseif argType == "CFrame" then
+                    local pos = arg.Position
+                    argValue = string.format("CFrame.new(%.2f, %.2f, %.2f, ...)", pos.X, pos.Y, pos.Z)
+                    print(string.format("  [%d] %s", i, argValue))
+                elseif argType == "table" then
+                    print(string.format("  [%d] table:", i))
+                    for k, v in pairs(arg) do
+                        print(string.format("      [%s] = %s (%s)", tostring(k), tostring(v), typeof(v)))
+                    end
+                else
+                    print(string.format("  [%d] %s: %s", i, argType, tostring(arg)))
                 end
-            else
-                print(string.format("  [%d] %s: %s", i, argType, tostring(arg)))
             end
         end
         
