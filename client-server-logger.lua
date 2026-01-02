@@ -107,17 +107,39 @@ end
 
 local function hookRemote(remote)
     if remote:IsA("RemoteEvent") then
+        -- Hook standard FireServer
         local oldFireServer = remote.FireServer
         remote.FireServer = function(self, ...)
-            serverLog(remote.Name .. " " .. formatArgs(...))
+            serverLog(remote:GetFullName() .. " " .. formatArgs(...))
             return oldFireServer(self, ...)
         end
+        
+        -- Hook lowercase fireServer (some games use this)
+        if remote.fireServer then
+            local oldFireServerLower = remote.fireServer
+            remote.fireServer = function(self, ...)
+                serverLog(remote:GetFullName() .. " " .. formatArgs(...))
+                return oldFireServerLower(self, ...)
+            end
+        end
+        
     elseif remote:IsA("RemoteFunction") then
+        -- Hook standard InvokeServer
         local oldInvokeServer = remote.InvokeServer
         remote.InvokeServer = function(self, ...)
-            serverLog(remote.Name .. " " .. formatArgs(...))
+            serverLog(remote:GetFullName() .. " " .. formatArgs(...))
             local results = {oldInvokeServer(self, ...)}
             return table.unpack(results)
+        end
+        
+        -- Hook lowercase invokeServer
+        if remote.invokeServer then
+            local oldInvokeServerLower = remote.invokeServer
+            remote.invokeServer = function(self, ...)
+                serverLog(remote:GetFullName() .. " " .. formatArgs(...))
+                local results = {oldInvokeServerLower(self, ...)}
+                return table.unpack(results)
+            end
         end
     end
 end
