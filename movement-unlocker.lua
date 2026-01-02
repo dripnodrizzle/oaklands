@@ -66,6 +66,10 @@ local function fixRun()
         pcall(function()
             humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
             humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
+            -- Also ensure the humanoid can actually run by checking walk speed
+            if humanoid.WalkSpeed < 16 then
+                humanoid.WalkSpeed = 16
+            end
         end)
         return wasDisabled
     end
@@ -143,6 +147,17 @@ local function monitorMovement()
     
     if not humanoid:GetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics) then
         humanoid:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
+        runFixed = true
+    end
+    
+    -- Prevent sit/platform stand states that can lock movement
+    if humanoid.Sit then
+        humanoid.Sit = false
+        runFixed = true
+    end
+    
+    if humanoid.PlatformStand then
+        humanoid.PlatformStand = false
         runFixed = true
     end
     
