@@ -30,17 +30,18 @@ end
 -- Configuration
 local Config = {
     Enabled = false,
-    AttacksPerTick = 50,  -- Attacks to send per tick
-    TickRate = 0.01,      -- Seconds between bursts (very fast)
+    AttacksPerTick = 5,   -- Attacks to send per tick (reduced for server rate limits)
+    TickRate = 0.05,      -- Seconds between bursts (50ms delay)
     HoldToMine = true,    -- Hold key to mine, or toggle
     MiningKey = Enum.KeyCode.E,  -- Key to activate super mining
 }
 
 local miningActive = false
 local attackCount = 0
+local lastAttackTime = 0
 local connection
 
--- Mining loop
+-- Mining loop with proper timing
 local function startMining()
     if connection then return end
     
@@ -49,7 +50,16 @@ local function startMining()
     connection = RunService.Heartbeat:Connect(function()
         if not miningActive then return end
         
-        -- Rapid fire attacks
+        local currentTime = tick()
+        
+        -- Respect tick rate
+        if currentTime - lastAttackTime < Config.TickRate then
+            return
+        end
+        
+        lastAttackTime = currentTime
+        
+        -- Send attacks
         for i = 1, Config.AttacksPerTick do
             AttackRemote:FireServer()
             attackCount = attackCount + 1
