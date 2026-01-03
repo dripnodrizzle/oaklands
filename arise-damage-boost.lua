@@ -10,6 +10,12 @@ local DAMAGE_MULTIPLIER = 5
 local ENABLED = true
 
 -- UI Setup
+-- Remove existing UI if present
+local existingGui = LocalPlayer.PlayerGui:FindFirstChild("DamageBoostUI")
+if existingGui then
+    existingGui:Destroy()
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "DamageBoostUI"
 ScreenGui.ResetOnSpawn = false
@@ -30,7 +36,7 @@ UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = Frame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -20, 0, 30)
+Title.Size = UDim2.new(1, -50, 0, 30)
 Title.Position = UDim2.new(0, 10, 0, 5)
 Title.BackgroundTransparency = 1
 Title.Text = "⚔️ Damage Boost"
@@ -39,6 +45,25 @@ Title.TextSize = 18
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Frame
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.Text = "✕"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 18
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = Frame
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+    print("[Damage Boost] UI closed")
+end)
 
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(1, -20, 0, 35)
