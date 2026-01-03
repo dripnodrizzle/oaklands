@@ -21,6 +21,7 @@ local AURA_RADIUS = 10 -- studs
 local ATTACKS_PER_TICK = 20 -- attacks per NPC per tick
 local TICK_RATE = 0.08 -- seconds between ticks (slowed down slightly)
 local SHOW_VISUAL = true
+local MIN_HEIGHT = 5 -- minimum Y position to prevent falling through baseplate
 
 -- Get character
 local char = Player.Character
@@ -61,6 +62,17 @@ local antiKnockback = RunService.Heartbeat:Connect(function()
                 local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
                 -- Reset tilt/roll but keep turning direction
                 hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
+            end
+        end
+        
+        -- Safety check: prevent falling through baseplate
+        if hrp and hrp.Parent then
+            local pos = hrp.Position
+            if pos.Y < MIN_HEIGHT then
+                -- Teleport back up to safe height
+                local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
+                hrp.CFrame = CFrame.new(pos.X, MIN_HEIGHT, pos.Z) * CFrame.Angles(0, y, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) -- stop downward momentum
             end
         end
         
