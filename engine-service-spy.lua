@@ -24,6 +24,24 @@ print("Found EngineService")
 local oldFireServer = EngineService.FireServer
 local events = {}
 
+-- Filter out spam events
+local ignoreList = {
+    "SyncClock",
+    "Ping",
+    "Heartbeat",
+    "UpdatePosition",
+    "Movement"
+}
+
+local function shouldIgnore(name)
+    for _, ignored in pairs(ignoreList) do
+        if name == ignored then
+            return true
+        end
+    end
+    return false
+end
+
 -- Hook FireServer
 EngineService.FireServer = function(remote, ...)
     local args = {...}
@@ -33,17 +51,20 @@ EngineService.FireServer = function(remote, ...)
         remoteName = remote.Name
     end
     
-    -- Log event
-    local logEntry = {
-        remote = remoteName,
-        args = args,
-        time = tick()
-    }
-    table.insert(events, logEntry)
-    
-    print("[ENGINE FIRE] " .. remoteName)
-    for i, arg in pairs(args) do
-        print("  Arg " .. tostring(i) .. " = " .. tostring(arg))
+    -- Skip spam events
+    if not shouldIgnore(remoteName) then
+        -- Log event
+        local logEntry = {
+            remote = remoteName,
+            args = args,
+            time = tick()
+        }
+        table.insert(events, logEntry)
+        
+        print("[ENGINE FIRE] " .. remoteName)
+        for i, arg in pairs(args) do
+            print("  Arg " .. tostring(i) .. " = " .. tostring(arg))
+        end
     end
     
     -- Call original
