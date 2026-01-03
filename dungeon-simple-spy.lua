@@ -23,6 +23,25 @@ end
 
 print("Monitoring Dungeon events...")
 
+-- Check if hookfunction exists
+if hookfunction then
+    print("Using hookfunction method")
+    
+    local oldNamecall
+    oldNamecall = hookfunction(game.GetChildren, function(...)
+        return oldNamecall(...)
+    end)
+    
+    -- Try to find and log Start event specifically
+    local startEvent = dungeonFolder.Start
+    if startEvent then
+        print("Found Start event - monitoring manually")
+        print("Call EngineService to start dungeons")
+    end
+else
+    print("No hookfunction - using direct hook")
+end
+
 -- Get children function without colon
 local getChildren = dungeonFolder.GetChildren
 local children = getChildren(dungeonFolder)
@@ -31,26 +50,34 @@ local children = getChildren(dungeonFolder)
 for i, remote in pairs(children) do
     if remote.ClassName == "RemoteEvent" then
         local remoteName = remote.Name
-        local oldFire = remote.FireServer
         
-        remote.FireServer = function(self, ...)
-            local args = {...}
-            local logEntry = {
-                name = remoteName,
-                args = args,
-                time = tick()
-            }
-            table.insert(events, logEntry)
+        -- Try to hook using pcall for safety
+        local success = pcall(function()
+            local oldFire = remote.FireServer
             
-            print("[DUNGEON EVENT] " .. remoteName)
-            for j, arg in pairs(args) do
-                print("  Arg " .. tostring(j) .. " = " .. tostring(arg))
+            remote.FireServer = function(self, ...)
+                local args = {...}
+                local logEntry = {
+                    name = remoteName,
+                    args = args,
+                    time = tick()
+                }
+                table.insert(events, logEntry)
+                
+                print("[DUNGEON EVENT] " .. remoteName)
+                for j, arg in pairs(args) do
+                    print("  Arg " .. tostring(j) .. " = " .. tostring(arg))
+                end
+                
+                return oldFire(self, ...)
             end
-            
-            return oldFire(self, ...)
-        end
+        end)
         
-        print("Hooked: " .. remoteName)
+        if success then
+            print("Hooked: " .. remoteName)
+        else
+            print("Failed to hook: " .. remoteName)
+        end
     end
 end
 
