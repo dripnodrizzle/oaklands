@@ -1,16 +1,12 @@
---> Dungeon Reward & EXP Spy
---> Monitors all RemoteEvents/RemoteFunctions related to dungeons, rewards, and experience
---> Use this to find how to modify dungeon ranks and EXP values
+-- Dungeon Reward & EXP Spy
+-- Monitors all RemoteEvents/RemoteFunctions related to dungeons, rewards, and experience
+-- Use this to find how to modify dungeon ranks and EXP values
 
 print("[Dungeon Spy] Starting...")
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
+local ReplicatedStorage = game.ReplicatedStorage
+local Players = game.Players
 local Player = Players.LocalPlayer
-
--- Store original functions
-local originalFireServer = nil
-local originalInvokeServer = nil
 
 -- Logged data
 local dungeonEvents = {}
@@ -39,7 +35,7 @@ local function formatArgs(...)
     local formatted = {}
     for i, arg in ipairs(args) do
         if type(arg) == "table" then
-            formatted[i] = "{"..tostring(#arg).." items}"
+            formatted[i] = "{table}"
         else
             formatted[i] = tostring(arg)
         end
@@ -47,14 +43,26 @@ local function formatArgs(...)
     return table.concat(formatted, ", ")
 end
 
--- Hook RemoteEvent:FireServer using simple method
+-- Get time string
+local function getTime()
+    return tostring(tick())
+end
+
+-- Hook RemoteEvent FireServer using simple method
 local function hookRemoteEvent(remote)
-    if not remote:IsA("RemoteEvent") then return end
+    if not remote then return end
+    if not remote.ClassName or remote.ClassName ~= "RemoteEvent" then return end
     
     local oldFireServer = remote.FireServer
+    if not oldFireServer then return end
     
     remote.FireServer = function(self, ...)
-        local remoteName = remote:GetFullName()
+        local remoteName = remote.Name
+        local remoteParent = remote.Parent
+        if remoteParent then
+            remoteName = remoteParent.Name .. "." .. remoteName
+        end
+        
         local argsStr = formatArgs(...)
         
         -- Check if related to dungeons
@@ -63,10 +71,10 @@ local function hookRemoteEvent(remote)
             local event = {
                 remote = remoteName,
                 args = argsStr,
-                time = os.date("%H:%M:%S")
+                time = getTime()
             }
             table.insert(dungeonEvents, event)
-            print("[DUNGEON] "..remoteName.." -> Args: "..event.args)
+            print("[DUNGEON] " .. remoteName .. " -> Args: " .. event.args)
         end
         
         -- Check if related to rewards
@@ -75,10 +83,10 @@ local function hookRemoteEvent(remote)
             local event = {
                 remote = remoteName,
                 args = argsStr,
-                time = os.date("%H:%M:%S")
+                time = getTime()
             }
             table.insert(rewardEvents, event)
-            print("[REWARD] "..remoteName.." -> Args: "..event.args)
+            print("[REWARD] " .. remoteName .. " -> Args: " .. event.args)
         end
         
         -- Check if related to exp
@@ -87,10 +95,10 @@ local function hookRemoteEvent(remote)
             local event = {
                 remote = remoteName,
                 args = argsStr,
-                time = os.date("%H:%M:%S")
+                time = getTime()
             }
             table.insert(expEvents, event)
-            print("[EXP] "..remoteName.." -> Args: "..event.args)
+            print("[EXP] " .. remoteName .. " -> Args: " .. event.args)
         end
         
         return oldFireServer(self, ...)
@@ -101,15 +109,17 @@ end
 print("[Dungeon Spy] Scanning for RemoteEvents...")
 
 local function scanFolder(folder)
+    if not folder then return end
+    
     for _, descendant in ipairs(folder:GetDescendants()) do
-        if descendant:IsA("RemoteEvent") then
-            local name = descendant:GetFullName()
+        if descendant.ClassName == "RemoteEvent" then
+            local name = descendant.Name
             if containsKeyword(name, dungeonKeywords) or 
                containsKeyword(name, rewardKeywords) or 
                containsKeyword(name, expKeywords) then
                 pcall(function()
                     hookRemoteEvent(descendant)
-                    print("[Dungeon Spy] Hooked: "..name)
+                    print("[Dungeon Spy] Hooked: " .. name)
                 end)
             end
         end
@@ -117,12 +127,14 @@ local function scanFolder(folder)
 end
 
 -- Scan ReplicatedStorage
-if ReplicatedStorage:FindFirstChild("Events") then
-    scanFolder(ReplicatedStorage.Events)
+local eventsFolder = ReplicatedStorage:FindFirstChild("Events")
+if eventsFolder then
+    scanFolder(eventsFolder)
 end
 
-if ReplicatedStorage:FindFirstChild("Client Events") then
-    scanFolder(ReplicatedStorage:FindFirstChild("Client Events"))
+local clientEvents = ReplicatedStorage:FindFirstChild("Client Events")
+if clientEvents then
+    scanFolder(clientEvents)
 end
 
 -- Also monitor the Engine system
@@ -131,7 +143,7 @@ if ReplicatedStorage:FindFirstChild("Engine") then
 end
 
 print("")
-print("="..string.rep("=", 60))
+print("=" .. string.rep("=", 60))
 print("[Dungeon Spy] Active and monitoring")
 print("[Dungeon Spy] Start/complete dungeons to capture events")
 print("")
@@ -140,7 +152,7 @@ print("  _G.ShowDungeonEvents() - Show dungeon-related events")
 print("  _G.ShowRewardEvents()  - Show reward-related events")
 print("  _G.ShowExpEvents()     - Show experience-related events")
 print("  _G.ShowAllEvents()     - Show all captured events")
-print("="..string.rep("=", 60))
+print("=" .. string.rep("=", 60))
 
 -- Helper functions
 _G.ShowDungeonEvents = function()
