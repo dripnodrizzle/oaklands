@@ -106,56 +106,95 @@ local function serverLog(str)
 end
 
 local function hookRemote(remote)
-    if remote:IsA("RemoteEvent") then
-        -- Hook standard FireServer
-        local oldFireServer = remote.FireServer
-        remote.FireServer = function(self, ...)
-            serverLog(remote:GetFullName() .. " " .. formatArgs(...))
-            return oldFireServer(self, ...)
-        end
-        
-        -- Hook lowercase fireServer (some games use this)
-        if remote.fireServer then
-            local oldFireServerLower = remote.fireServer
-            remote.fireServer = function(self, ...)
-                serverLog(remote:GetFullName() .. " " .. formatArgs(...))
-                return oldFireServerLower(self, ...)
+    local remotePath = remote:GetFullName()
+    
+    pcall(function()
+        if remote:IsA("RemoteEvent") then
+            -- Hook client -> server (FireServer)
+            if remote.FireServer then
+                local oldFireServer = remote.FireServer
+                remote.FireServer = function(self, ...)
+                    serverLog("→ " .. remotePath .. " " .. formatArgs(...))
+                    return oldFireServer(self, ...)
+                end
+            end
+            
+            -- Hook lowercase fireServer
+            if remote.fireServer then
+                local oldFireServerLower = remote.fireServer
+                remote.fireServer = function(self, ...)
+                    serverLog("→ " .. remotePath .. " " .. formatArgs(...))
+                    return oldFireServerLower(self, ...)
+                end
+            end
+            
+            -- Hook server -> client (OnClientEvent)
+            if remote.OnClientEvent then
+                local oldConnect = remote.OnClientEvent.Connect
+                remote.OnClientEvent.Connect = function(self, func)
+                    return oldConnect(self, function(...)
+                        log("← " .. remotePath .. " " .. formatArgs(...))
+                        return func(...)
+                    end)
+                end
+            end
+            
+        elseif remote:IsA("RemoteFunction") then
+            -- Hook client -> server (InvokeServer)
+            if remote.InvokeServer then
+                local oldInvokeServer = remote.InvokeServer
+                remote.InvokeServer = function(self, ...)
+                    serverLog("→ " .. remotePath .. " " .. formatArgs(...))
+                    local results = {oldInvokeServer(self, ...)}
+                    return table.unpack(results)
+                end
+            end
+            
+            -- Hook lowercase invokeServer
+            if remote.invokeServer then
+                local oldInvokeServerLower = remote.invokeServer
+                remote.invokeServer = function(self, ...)
+                    serverLog("→ " .. remotePath .. " " .. formatArgs(...))
+                    local results = {oldInvokeServerLower(self, ...)}
+                    return table.unpack(results)
+                end
             end
         end
-        
-    elseif remote:IsA("RemoteFunction") then
-        -- Hook standard InvokeServer
-        local oldInvokeServer = remote.InvokeServer
-        remote.InvokeServer = function(self, ...)
-            serverLog(remote:GetFullName() .. " " .. formatArgs(...))
-            local results = {oldInvokeServer(self, ...)}
-            return table.unpack(results)
-        end
-        
-        -- Hook lowercase invokeServer
-        if remote.invokeServer then
-            local oldInvokeServerLower = remote.invokeServer
-            remote.invokeServer = function(self, ...)
-                serverLog(remote:GetFullName() .. " " .. formatArgs(...))
-                local results = {oldInvokeServerLower(self, ...)}
-                return table.unpack(results)
-            end
-        end
-    end
+    end)
 end
 
 local function hookAllRemotes()
+    log("Starting remote hooking process...")
     local hooked = 0
+    local foundRemotes = {}
+    local errors = 0
     
     -- Hook existing remotes
     for _, remote in pairs(game:GetDescendants()) do
         if (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) and remote.Parent then
-            pcall(function()
+            table.insert(foundRemotes, remote:GetFullName())
+            local success, err = pcall(function()
                 hookRemote(remote)
                 hooked = hooked + 1
             end)
+            if not success then
+                errors = errors + 1
+                warn("Failed to hook " .. remote:GetFullName() .. ": " .. tostring(err))
+            end
         end
     end
+    
+    -- Log what we found
+    log("Found " .. #foundRemotes .. " remotes:")
+    for i = 1, math.min(10, #foundRemotes) do
+        log("  - " .. foundRemotes[i])
+    end
+    if #foundRemotes > 10 then
+        log("  ... and " .. (#foundRemotes - 10) .. " more")
+    end
+    log("Successfully hooked " .. hooked .. " remotes (" .. errors .. " errors)")
+    log("→ = Client->Server | ← = Server->Client")
+    log("Monitoring all network traffic...")
     
     -- Hook new remotes as they're added
     game.DescendantAdded:Connect(function(remote)
@@ -163,11 +202,10 @@ local function hookAllRemotes()
             task.wait(0.1)
             pcall(function()
                 hookRemote(remote)
+                log("Hooked new remote: " .. remote:GetFullName())
             end)
         end
     end)
-    
-    log("Hooked " .. hooked .. " remotes. Monitoring for client->server communication...")
 end
 
 hookAllRemotes()
