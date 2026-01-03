@@ -138,141 +138,66 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
--- Wait for Engine Service
-local EngineService
-local success = pcall(function()
-    EngineService = ReplicatedStorage:WaitForChild("Engine", 5):WaitForChild("EngineService", 5)
-end)
-
-if not success or not EngineService then
-    StatusLabel.Text = "Status: Engine not found"
-    warn("Could not find Engine Service")
-end
-
--- Find Client Events folder
-local ClientEvents
-pcall(function()
-    ClientEvents = ReplicatedStorage:WaitForChild("Client Events", 5)
-end)
-
--- Hook into FireServer for damage boost
-local originalFireServer
+-- Metamethod hook for all RemoteEvent:FireServer calls
 local hookedRemotes = {}
+local damageBoosts = 0
 
-if EngineService then
-    -- Try to hook the Engine's FireServer if it exists
-    local module = require(EngineService)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
     
-    if module and module.FireServer then
-        originalFireServer = module.FireServer
-        
-        module.FireServer = function(remote, ...)
-            local args = {...}
+    if method == "FireServer" and self:IsA("RemoteEvent") then
+        if ENABLED then
+            local remoteName = self.Name:lower()
             
-            if ENABLED and remote and remote.Name then
-                local remoteName = remote.Name:lower()
+            -- Check for combat-related remotes
+            if remoteName:find("damage") or remoteName:find("attack") or 
+               remoteName:find("hit") or remoteName:find("combat") or
+               remoteName:find("punch") or remoteName:find("swing") or
+               remoteName:find("strike") or remoteName:find("melee") then
                 
-                -- Check for damage-related remotes
-                if remoteName:find("damage") or remoteName:find("attack") or 
-                   remoteName:find("hit") or remoteName:find("combat") or
-                   remoteName:find("punch") or remoteName:find("swing") then
-                    
-                    -- Log the remote if not already logged
-                    if not hookedRemotes[remote.Name] then
-                        hookedRemotes[remote.Name] = true
-                        StatusLabel.Text = "Hooked: " .. remote.Name
-                        print("[Damage Boost] Hooked remote:", remote.Name)
-                    end
-                    
-                    -- Multiply numeric damage values in arguments
-                    for i, arg in ipairs(args) do
-                        if type(arg) == "number" and arg > 0 and arg < 10000 then
-                            args[i] = arg * DAMAGE_MULTIPLIER
-                        elseif type(arg) == "table" then
-                            -- Check table for damage values
-                            for key, value in pairs(arg) do
-                                if type(value) == "number" and (
-                                    tostring(key):lower():find("damage") or
-                                    tostring(key):lower():find("dmg") or
-                                    tostring(key):lower():find("power")
-                                ) then
+                -- Log the remote if not already logged
+                if not hookedRemotes[self.Name] then
+                    hookedRemotes[self.Name] = true
+                    StatusLabel.Text = "Hooked: " .. self.Name
+                    print("[Damage Boost] Hooked remote:", self.Name)
+                end
+                
+                -- Multiply ALL numeric values (damage is usually the first or second arg)
+                local modified = false
+                for i, arg in ipairs(args) do
+                    if type(arg) == "number" and arg > 0 and arg < 10000 then
+                        args[i] = arg * DAMAGE_MULTIPLIER
+                        modified = true
+                    elseif type(arg) == "table" then
+                        -- Deep table scan for damage values
+                        for key, value in pairs(arg) do
+                            if type(value) == "number" and value > 0 and value < 10000 then
+                                local keyStr = tostring(key):lower()
+                                if keyStr:find("damage") or keyStr:find("dmg") or 
+                                   keyStr:find("power") or keyStr:find("amount") then
                                     arg[key] = value * DAMAGE_MULTIPLIER
+                                    modified = true
                                 end
                             end
                         end
                     end
                 end
+                
+                if modified then
+                    damageBoosts += 1
+                    StatusLabel.Text = "Boosted: " .. damageBoosts .. "x"
+                end
             end
-            
-            return originalFireServer(remote, unpack(args))
         end
-        
-        StatusLabel.Text = "Status: Hooked Engine"
-        print("[Damage Boost] Successfully hooked FireServer")
     end
-end
-
--- Alternative: Hook all RemoteEvents directly
-local function hookRemoteEvent(remote)
-    if not remote:IsA("RemoteEvent") then return end
     
-    local originalFireServer2 = remote.FireServer
-    remote.FireServer = newcclosure(function(self, ...)
-        local args = {...}
-        
-        if ENABLED then
-            local remoteName = remote.Name:lower()
-            
-            if remoteName:find("damage") or remoteName:find("attack") or 
-               remoteName:find("hit") or remoteName:find("combat") or
-               remoteName:find("punch") or remoteName:find("swing") then
-                
-                if not hookedRemotes[remote.Name] then
-                    hookedRemotes[remote.Name] = true
-                    StatusLabel.Text = "Hooked: " .. remote.Name
-                    print("[Damage Boost] Hooked remote:", remote.Name)
-                end
-                
-                for i, arg in ipairs(args) do
-                    if type(arg) == "number" and arg > 0 and arg < 10000 then
-                        args[i] = arg * DAMAGE_MULTIPLIER
-                    elseif type(arg) == "table" then
-                        for key, value in pairs(arg) do
-                            if type(value) == "number" and (
-                                tostring(key):lower():find("damage") or
-                                tostring(key):lower():find("dmg") or
-                                tostring(key):lower():find("power")
-                            ) then
-                                arg[key] = value * DAMAGE_MULTIPLIER
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        return originalFireServer2(self, unpack(args))
-    end)
-end
-
--- Hook existing remotes
-for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-    if descendant:IsA("RemoteEvent") then
-        pcall(function()
-            hookRemoteEvent(descendant)
-        end)
-    end
-end
-
--- Hook new remotes as they're added
-ReplicatedStorage.DescendantAdded:Connect(function(descendant)
-    if descendant:IsA("RemoteEvent") then
-        task.wait(0.1)
-        pcall(function()
-            hookRemoteEvent(descendant)
-        end)
-    end
+    return oldNamecall(self, unpack(args))
 end)
+
+StatusLabel.Text = "Status: Hooked __namecall"
+print("[Damage Boost] Metamethod hook active!")
 
 print("[Damage Boost] Loaded successfully!")
 print("[Damage Boost] Multiplier:", DAMAGE_MULTIPLIER .. "x")
