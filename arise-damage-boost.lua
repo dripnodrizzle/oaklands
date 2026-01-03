@@ -145,55 +145,59 @@ local damageBoosts = 0
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
-    local args = {...}
     
-    if method == "FireServer" and self:IsA("RemoteEvent") then
-        if ENABLED then
-            local remoteName = self.Name:lower()
+    if method == "FireServer" and self:IsA("RemoteEvent") and ENABLED then
+        local remoteName = self.Name:lower()
+        
+        -- Check for combat-related remotes ONLY
+        if remoteName:find("damage") or remoteName:find("attack") or 
+           remoteName:find("hit") or remoteName:find("combat") or
+           remoteName:find("punch") or remoteName:find("swing") or
+           remoteName:find("strike") or remoteName:find("melee") then
             
-            -- Check for combat-related remotes
-            if remoteName:find("damage") or remoteName:find("attack") or 
-               remoteName:find("hit") or remoteName:find("combat") or
-               remoteName:find("punch") or remoteName:find("swing") or
-               remoteName:find("strike") or remoteName:find("melee") then
-                
-                -- Log the remote if not already logged
-                if not hookedRemotes[self.Name] then
-                    hookedRemotes[self.Name] = true
-                    StatusLabel.Text = "Hooked: " .. self.Name
-                    print("[Damage Boost] Hooked remote:", self.Name)
-                end
-                
-                -- Multiply ALL numeric values (damage is usually the first or second arg)
-                local modified = false
-                for i, arg in ipairs(args) do
-                    if type(arg) == "number" and arg > 0 and arg < 10000 then
-                        args[i] = arg * DAMAGE_MULTIPLIER
-                        modified = true
-                    elseif type(arg) == "table" then
-                        -- Deep table scan for damage values
-                        for key, value in pairs(arg) do
-                            if type(value) == "number" and value > 0 and value < 10000 then
-                                local keyStr = tostring(key):lower()
-                                if keyStr:find("damage") or keyStr:find("dmg") or 
-                                   keyStr:find("power") or keyStr:find("amount") then
-                                    arg[key] = value * DAMAGE_MULTIPLIER
-                                    modified = true
-                                end
+            -- Log the remote if not already logged
+            if not hookedRemotes[self.Name] then
+                hookedRemotes[self.Name] = true
+                StatusLabel.Text = "Hooked: " .. self.Name
+                print("[Damage Boost] Hooked remote:", self.Name)
+            end
+            
+            -- Copy args to modify them
+            local args = {...}
+            local modified = false
+            
+            -- Multiply ALL numeric values (damage is usually the first or second arg)
+            for i, arg in ipairs(args) do
+                if type(arg) == "number" and arg > 0 and arg < 10000 then
+                    args[i] = arg * DAMAGE_MULTIPLIER
+                    modified = true
+                elseif type(arg) == "table" then
+                    -- Deep table scan for damage values
+                    for key, value in pairs(arg) do
+                        if type(value) == "number" and value > 0 and value < 10000 then
+                            local keyStr = tostring(key):lower()
+                            if keyStr:find("damage") or keyStr:find("dmg") or 
+                               keyStr:find("power") or keyStr:find("amount") then
+                                arg[key] = value * DAMAGE_MULTIPLIER
+                                modified = true
                             end
                         end
                     end
                 end
-                
-                if modified then
-                    damageBoosts += 1
-                    StatusLabel.Text = "Boosted: " .. damageBoosts .. "x"
-                end
             end
+            
+            if modified then
+                damageBoosts += 1
+                StatusLabel.Text = "Boosted: " .. damageBoosts .. "x"
+            end
+            
+            -- Return modified call only for combat remotes
+            return oldNamecall(self, unpack(args))
         end
     end
     
-    return oldNamecall(self, unpack(args))
+    -- Pass through all other calls unchanged (including NPC interactions)
+    return oldNamecall(self, ...)
 end)
 
 StatusLabel.Text = "Status: Hooked __namecall"
