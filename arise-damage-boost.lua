@@ -187,12 +187,13 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 print("[Damage Boost] Hooked remote:", self.Name)
             end
             
-            -- Copy args to modify them
-            local args = {...}
+            -- Pack args properly
+            local args = table.pack(...)
             local modified = false
             
-            -- Multiply ALL numeric values (damage is usually the first or second arg)
-            for i, arg in ipairs(args) do
+            -- Multiply numeric values
+            for i = 1, args.n do
+                local arg = args[i]
                 if type(arg) == "number" and arg > 0 and arg < 10000 then
                     args[i] = arg * DAMAGE_MULTIPLIER
                     modified = true
@@ -216,12 +217,12 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 StatusLabel.Text = "Boosted: " .. damageBoosts .. "x"
             end
             
-            -- Return modified call only for combat remotes
-            return oldNamecall(self, unpack(args))
+            -- Return modified call with properly unpacked args
+            return oldNamecall(self, table.unpack(args, 1, args.n))
         end
     end
     
-    -- Pass through all other calls unchanged (including NPC interactions)
+    -- Pass through all other calls unchanged
     return oldNamecall(self, ...)
 end)
 
