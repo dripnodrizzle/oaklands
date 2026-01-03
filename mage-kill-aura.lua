@@ -30,7 +30,7 @@ end
 local AURA_RADIUS = 50 -- studs
 local ATTACK_INTERVAL = 0.1 -- seconds between attacks
 local SHOW_VISUALS = true -- show aura circle
-local BASE_DAMAGE = 123.06153343870662
+local BASE_DAMAGE = 2000
 
 -- Get Mage remotes
 local MageFolder = ReplicatedStorage:WaitForChild("Mage")
@@ -128,12 +128,19 @@ end
 
 -- Function to fire Mage M1 combo
 local function fireMageAttack(targetNPC, combo)
-    pcall(function()
-        -- Fire M1
+    local success, err = pcall(function()
+        -- Get target's HumanoidRootPart for targeting
+        local targetHRP = targetNPC:FindFirstChild("HumanoidRootPart")
+        if not targetHRP then return end
+        
+        -- Calculate camera CFrame looking at target
+        local lookAtCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHRP.Position)
+        
+        -- Fire M1 (using NPC model as Player parameter)
         local args1 = {
             {
                 Player = targetNPC,
-                Cam = Camera.CFrame,
+                Cam = lookAtCFrame,
                 Combo = combo,
                 Character = char,
                 Damage = BASE_DAMAGE
@@ -141,18 +148,22 @@ local function fireMageAttack(targetNPC, combo)
         }
         M1Remote:FireServer(unpack(args1))
         
-        -- Fire M1Event
+        -- Fire M1Event (with target in Target field)
         local args2 = {
             {
                 Character = char,
                 Combo = combo,
-                Target = {},
+                Target = {targetNPC},
                 Player = targetNPC,
                 Damage = BASE_DAMAGE
             }
         }
         M1EventRemote:FireServer(unpack(args2))
     end)
+    
+    if not success then
+        warn("[Mage Kill Aura] Attack error:", err)
+    end
 end
 
 -- Stats
