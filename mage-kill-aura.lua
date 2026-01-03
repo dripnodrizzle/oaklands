@@ -10,27 +10,27 @@ local Player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Camera = Workspace.CurrentCamera
 
--- Try to find NPC folders (common names in different games)
-local npcFolders = {}
-local possibleFolderNames = {"EntityFolder", "Enemies", "NPCs", "Monsters", "Mobs", "Characters", "Entities"}
-
-for _, folderName in ipairs(possibleFolderNames) do
-    local folder = Workspace:FindFirstChild(folderName)
-    if folder then
-        table.insert(npcFolders, folder)
-        print("[Mage Kill Aura] Found NPC folder:", folderName)
-    end
+-- Check for ENPC folder (this game's NPC folder)
+local ENPCFolder = Workspace:FindFirstChild("ENPC")
+if not ENPCFolder then
+    warn("[Mage Kill Aura] ENPC folder not found!")
+    return
 end
 
-if #npcFolders == 0 then
-    print("[Mage Kill Aura] No common NPC folders found, will scan entire Workspace")
-end
+print("[Mage Kill Aura] Found ENPC folder")
 
 -- Settings
 local AURA_RADIUS = 50 -- studs
 local ATTACK_INTERVAL = 0.1 -- seconds between attacks
 local SHOW_VISUALS = true -- show aura circle
-local BASE_DAMAGE = 2000
+
+-- Get Intelligence stat for damage calculation
+local Intelligence = Player:WaitForChild("Intelligence")
+
+-- Calculate damage like the original script
+local function calculateDamage()
+    return Intelligence.Value ^ 1.25
+end
 
 -- Get Mage remotes
 local MageFolder = ReplicatedStorage:WaitForChild("Mage")
@@ -83,41 +83,50 @@ local function isNPC(model)
     return true
 end
 
--- Function to get nearby NPCs
-local function getNearbyNPCs()
-    local nearbyNPCs = {}
+-- Function to get closest NPC in camera view (mimics original GetTargetInFront)
+local function getClosestNPC()
+    local closestNPC = nil
+    local closestDistance = AURA_RADIUS
+    local hrpPosition = hrp.Position
     
-    -- First, try searching in known NPC folders
-    if #npcFolders > 0 then
-        for _, folder in ipairs(npcFolders) do
-            for _, entity in pairs(folder:GetChildren()) do
-                if entity:IsA("Model") then
-                    local npcHRP = entity:FindFirstChild("HumanoidRootPart")
-                    local humanoid = entity:FindFirstChildOfClass("Humanoid")
-                    
-                    if npcHRP and humanoid and humanoid.Health > 0 then
-                        local distance = (hrp.Position - npcHRP.Position).Magnitude
-                        
-                        if distance <= AURA_RADIUS then
-                            table.insert(nearbyNPCs, entity)
+    for _, npc in pairs(ENPCFolder:GetChildren()) do
+        if npc.PrimaryPart then
+            local npcPosition = npc.PrimaryPart.Position
+            local distance = (npcPosition - hrpPosition).Magnitude
+            
+            if distance <= AURA_RADIUS then
+                local humanoid = npc:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    -- Check if in camera view (20 degree cone like original)
+                    local angle = math.acos(Camera.CFrame.LookVector:Dot((npcPosition - hrpPosition).Unit))
+                    if angle <= math.rad(20) then
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closestNPC = npc
                         end
                     end
                 end
             end
         end
-    else
-        -- Fallback: scan entire Workspace for NPCs
-        for _, entity in pairs(Workspace:GetChildren()) do
-            if entity:IsA("Model") and isNPC(entity) then
-                local npcHRP = entity:FindFirstChild("HumanoidRootPart")
-                local humanoid = entity:FindFirstChildOfClass("Humanoid")
+    end
+    
+    return closestNPC
+end
+
+-- Function to get nearby NPCs
+local function getNearbyNPCs()
+    local nearbyNPCs = {}
+    
+    for _, npc in pairs(ENPCFolder:GetChildren()) do
+        if npc.PrimaryPart then
+            local npcHRP = npc.PrimaryPart
+            local humanoid = npc:FindFirstChildOfClass("Humanoid")
+            
+            if humanoid and humanoid.Health > 0 then
+                local distance = (hrp.Position - npcHRP.Position).Magnitude
                 
-                if npcHRP and humanoid and humanoid.Health > 0 then
-                    local distance = (hrp.Position - npcHRP.Position).Magnitude
-                    
-                    if distance <= AURA_RADIUS then
-                        table.insert(nearbyNPCs, entity)
-                    end
+                if distance <= AURA_RADIUS then
+                    table.insert(nearbyNPCs, npc)
                 end
             end
         end
@@ -126,39 +135,24 @@ local function getNearbyNPCs()
     return nearbyNPCs
 end
 
--- Function to fire Mage M1 combo
-local function fireMageAttack(targetNPC, combo)
+-- Function to fire Mage M1 combo (matches original script structure)
+local function fireMageAttack(combo)
     local success, err = pcall(function()
-        -- Get target's HumanoidRootPart for targeting
-        local targetHRP = targetNPC:FindFirstChild("HumanoidRootPart")
-        if not targetHRP then return end
+        -- Get closest NPC for auto-targeting
+        local closestNPC = getClosestNPC()
         
-        -- Calculate camera CFrame looking at target
-        local lookAtCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHRP.Position)
-        
-        -- Fire M1 (using NPC model as Player parameter)
-        local args1 = {
-            {
-                Player = targetNPC,
-                Cam = lookAtCFrame,
-                Combo = combo,
-                Character = char,
-                Damage = BASE_DAMAGE
-            }
+        -- Build the args table like the original script
+        local args = {
+            Player = Player,
+            Character = char,
+            Damage = calculateDamage(),
+            Closest = closestNPC, -- Auto-targeting
+            Cam = Camera.CFrame,
+            Combo = combo
         }
-        M1Remote:FireServer(unpack(args1))
         
-        -- Fire M1Event (with target in Target field)
-        local args2 = {
-            {
-                Character = char,
-                Combo = combo,
-                Target = {targetNPC},
-                Player = targetNPC,
-                Damage = BASE_DAMAGE
-            }
-        }
-        M1EventRemote:FireServer(unpack(args2))
+        -- Fire M1 remote (this creates the pellet on client)
+        M1Remote:FireServer(args)
     end)
     
     if not success then
@@ -213,14 +207,11 @@ RunService.Heartbeat:Connect(function()
                 currentCombo = 1
             end
         end
-    end
-end)
-
--- Stats display loop
-task.spawn(function()
-    while running do
-        task.wait(5) -- Update stats every 5 seconds
-        local runtime = math.floor(tick() - stats.startTime)
+    endFire attack (the pellet will auto-target closest NPC)
+            fireMageAttack(currentCombo)
+            
+            -- Track stats
+            stats.totalAttacks = stats.totalAttacks + 1untime = math.floor(tick() - stats.startTime)
         print(string.format("[Mage Kill Aura] Runtime: %ds | Attacks: %d | NPCs: %d", 
             runtime, stats.totalAttacks, #getNearbyNPCs()))
     end
