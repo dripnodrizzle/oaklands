@@ -166,47 +166,57 @@ end)
 -- Metamethod hook for all RemoteEvent:FireServer calls
 local hookedRemotes = {}
 local damageBoosts = 0
+local attackRemote
+
+-- Find the Attack remote
+pcall(function()
+    attackRemote = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Combat"):WaitForChild("Attack")
+    StatusLabel.Text = "Status: Found Attack remote"
+    print("[Damage Boost] Found Attack remote!")
+end)
 
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     
     if method == "FireServer" and self:IsA("RemoteEvent") and ENABLED then
-        local remoteName = self.Name:lower()
-        
-        -- Check for combat-related remotes ONLY
-        if remoteName:find("damage") or remoteName:find("attack") or 
-           remoteName:find("hit") or remoteName:find("combat") or
-           remoteName:find("punch") or remoteName:find("swing") or
-           remoteName:find("strike") or remoteName:find("melee") then
-            
-            -- Log the remote if not already logged
-            if not hookedRemotes[self.Name] then
-                hookedRemotes[self.Name] = true
-                StatusLabel.Text = "Hooked: " .. self.Name
-                print("[Damage Boost] Hooked remote:", self.Name)
+        -- Check if this is the Attack remote
+        if attackRemote and self == attackRemote then
+            if not hookedRemotes["Attack"] then
+                hookedRemotes["Attack"] = true
+                StatusLabel.Text = "Hooked: Attack"
+                print("[Damage Boost] Hooked Attack remote!")
             end
             
             -- Pack args properly
             local args = table.pack(...)
             local modified = false
             
-            -- Multiply numeric values
+            -- Log original arguments for debugging
+            print("[Damage Boost] Original args:")
+            for i = 1, args.n do
+                print("  [" .. i .. "]", args[i], type(args[i]))
+                if type(args[i]) == "table" then
+                    for k, v in pairs(args[i]) do
+                        print("    ", k, "=", v)
+                    end
+                end
+            end
+            
+            -- Multiply ALL numeric values (damage could be anywhere)
             for i = 1, args.n do
                 local arg = args[i]
                 if type(arg) == "number" and arg > 0 and arg < 10000 then
                     args[i] = arg * DAMAGE_MULTIPLIER
                     modified = true
+                    print("[Damage Boost] Multiplied arg[" .. i .. "]: " .. arg .. " -> " .. args[i])
                 elseif type(arg) == "table" then
-                    -- Deep table scan for damage values
+                    -- Scan entire table for numeric values
                     for key, value in pairs(arg) do
                         if type(value) == "number" and value > 0 and value < 10000 then
-                            local keyStr = tostring(key):lower()
-                            if keyStr:find("damage") or keyStr:find("dmg") or 
-                               keyStr:find("power") or keyStr:find("amount") then
-                                arg[key] = value * DAMAGE_MULTIPLIER
-                                modified = true
-                            end
+                            arg[key] = value * DAMAGE_MULTIPLIER
+                            modified = true
+                            print("[Damage Boost] Multiplied table[" .. tostring(key) .. "]: " .. value .. " -> " .. arg[key])
                         end
                     end
                 end
@@ -215,9 +225,40 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
             if modified then
                 damageBoosts += 1
                 StatusLabel.Text = "Boosted: " .. damageBoosts .. "x"
+            else
+                StatusLabel.Text = "Attack called (no numeric args)"
             end
             
-            -- Return modified call with properly unpacked args
+            -- Return modified call
+            return oldNamecall(self, table.unpack(args, 1, args.n))
+        end
+        
+        -- Also check by name as fallback
+        local remoteName = self.Name:lower()
+        if remoteName == "attack" or remoteName:find("damage") or 
+           remoteName:find("hit") or remoteName:find("combat") then
+            
+            if not hookedRemotes[self.Name] then
+                hookedRemotes[self.Name] = true
+                print("[Damage Boost] Also hooked:", self.Name)
+            end
+            
+            local args = table.pack(...)
+            
+            -- Multiply numeric values
+            for i = 1, args.n do
+                local arg = args[i]
+                if type(arg) == "number" and arg > 0 and arg < 10000 then
+                    args[i] = arg * DAMAGE_MULTIPLIER
+                elseif type(arg) == "table" then
+                    for key, value in pairs(arg) do
+                        if type(value) == "number" and value > 0 and value < 10000 then
+                            arg[key] = value * DAMAGE_MULTIPLIER
+                        end
+                    end
+                end
+            end
+            
             return oldNamecall(self, table.unpack(args, 1, args.n))
         end
     end
@@ -228,6 +269,7 @@ end)
 
 StatusLabel.Text = "Status: Hooked __namecall"
 print("[Damage Boost] Metamethod hook active!")
+print("[Damage Boost] Target: ReplicatedStorage.Events.Combat.Attack")
 
 print("[Damage Boost] Loaded successfully!")
 print("[Damage Boost] Multiplier:", DAMAGE_MULTIPLIER .. "x")
