@@ -33,9 +33,20 @@ local function calculateDamage()
 end
 
 -- Get Mage remotes
-local MageFolder = ReplicatedStorage:WaitForChild("Mage")
-local M1Remote = MageFolder:WaitForChild("M1")
-local M1EventRemote = MageFolder:WaitForChild("M1Event")
+local MageFolder = ReplicatedStorage:FindFirstChild("Mage")
+if not MageFolder then
+    warn("[Mage Kill Aura] Mage folder not found in ReplicatedStorage!")
+    warn("[Mage Kill Aura] Make sure you're playing as Mage class")
+    return
+end
+
+local M1Remote = MageFolder:FindFirstChild("M1")
+if not M1Remote then
+    warn("[Mage Kill Aura] M1 remote not found!")
+    return
+end
+
+print("[Mage Kill Aura] Found Mage remotes")
 
 -- Get character
 local char = Player.Character or Player.CharacterAdded:Wait()
