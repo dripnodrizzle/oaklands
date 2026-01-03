@@ -23,8 +23,12 @@ end
 
 print("Monitoring Dungeon events...")
 
+-- Get children function without colon
+local getChildren = dungeonFolder.GetChildren
+local children = getChildren(dungeonFolder)
+
 -- Hook each remote in Dungeon folder
-for i, remote in pairs(dungeonFolder:GetChildren()) do
+for i, remote in pairs(children) do
     if remote.ClassName == "RemoteEvent" then
         local remoteName = remote.Name
         local oldFire = remote.FireServer
@@ -40,7 +44,7 @@ for i, remote in pairs(dungeonFolder:GetChildren()) do
             
             print("[DUNGEON EVENT] " .. remoteName)
             for j, arg in pairs(args) do
-                print("  Arg " .. tostring(j) .. ": " .. tostring(arg))
+                print("  Arg " .. tostring(j) .. " = " .. tostring(arg))
             end
             
             return oldFire(self, ...)
@@ -52,16 +56,16 @@ end
 
 -- Show events function
 _G.ShowEvents = function()
-    print("\n=== CAPTURED EVENTS ===")
+    print("=== CAPTURED EVENTS ===")
     print("Total: " .. tostring(#events))
     for i, event in pairs(events) do
-        print("\n[" .. tostring(i) .. "] " .. event.name)
+        print("[" .. tostring(i) .. "] " .. event.name)
         for j, arg in pairs(event.args) do
             print("  " .. tostring(j) .. " = " .. tostring(arg))
         end
     end
-    print("======================\n")
+    print("======================")
 end
 
-print("\nDungeon Spy Active!")
+print("Dungeon Spy Active!")
 print("Use: _G.ShowEvents()")
