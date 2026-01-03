@@ -27,9 +27,9 @@ local SHOW_VISUALS = true -- show aura circle
 -- Get Intelligence stat for damage calculation
 local Intelligence = Player:WaitForChild("Intelligence")
 
--- Calculate damage like the original script
+-- Calculate damage (boosted for kill aura)
 local function calculateDamage()
-    return Intelligence.Value ^ 1.25
+    return (Intelligence.Value ^ 1.25) * 100 -- 100x multiplier
 end
 
 -- Get Mage remotes
