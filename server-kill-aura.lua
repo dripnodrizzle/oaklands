@@ -47,33 +47,38 @@ pcall(function()
     humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
 end)
 
--- Continuously prevent falling
+-- Continuously prevent falling and keep upright
+local savedYRotation = 0
 local antiKnockback = RunService.Heartbeat:Connect(function()
-    if humanoid and humanoid.Parent then
+    if humanoid and humanoid.Parent and hrp and hrp.Parent then
         -- Check if being knocked down
         local state = humanoid:GetState()
         if state == Enum.HumanoidStateType.FallingDown or 
            state == Enum.HumanoidStateType.Ragdoll then
             humanoid:ChangeState(Enum.HumanoidStateType.Running)
-            
-            -- Only correct rotation when actually knocked down
-            if hrp and hrp.Parent then
-                local pos = hrp.Position
-                local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
-                -- Reset tilt/roll but keep turning direction
-                hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
-            end
+        end
+        
+        -- Always keep player upright - correct any rotation
+        local pos = hrp.Position
+        local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
+        
+        -- Save Y rotation only if not tilted (to preserve turning)
+        if math.abs(x) < 0.1 and math.abs(z) < 0.1 then
+            savedYRotation = y
+        end
+        
+        -- Reset tilt/roll continuously
+        if math.abs(x) > 0.1 or math.abs(z) > 0.1 then
+            hrp.CFrame = CFrame.new(pos) * CFrame.Angles(0, savedYRotation, 0)
+            -- Stop any rotational velocity
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
         end
         
         -- Safety check: prevent falling through baseplate
-        if hrp and hrp.Parent then
-            local pos = hrp.Position
-            if pos.Y < MIN_HEIGHT then
-                -- Teleport back up to safe height
-                local x, y, z = hrp.CFrame:ToEulerAnglesYXZ()
-                hrp.CFrame = CFrame.new(pos.X, MIN_HEIGHT, pos.Z) * CFrame.Angles(0, y, 0)
-                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) -- stop downward momentum
-            end
+        if pos.Y < MIN_HEIGHT then
+            -- Teleport back up to safe height
+            hrp.CFrame = CFrame.new(pos.X, MIN_HEIGHT, pos.Z) * CFrame.Angles(0, savedYRotation, 0)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) -- stop downward momentum
         end
         
         humanoid.PlatformStand = false
