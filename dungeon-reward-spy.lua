@@ -47,64 +47,54 @@ local function formatArgs(...)
     return table.concat(formatted, ", ")
 end
 
--- Hook RemoteEvent:FireServer
+-- Hook RemoteEvent:FireServer using simple method
 local function hookRemoteEvent(remote)
     if not remote:IsA("RemoteEvent") then return end
     
-    local mt = getrawmetatable(remote)
-    if not mt then return end
+    local oldFireServer = remote.FireServer
     
-    setreadonly(mt, false)
-    local oldFireServer = mt.__namecall
-    
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
+    remote.FireServer = function(self, ...)
+        local remoteName = remote:GetFullName()
+        local argsStr = formatArgs(...)
         
-        if method == "FireServer" and self == remote then
-            local args = {...}
-            local remoteName = remote:GetFullName()
-            
-            -- Check if related to dungeons
-            if containsKeyword(remoteName, dungeonKeywords) or 
-               containsKeyword(formatArgs(...), dungeonKeywords) then
-                local event = {
-                    remote = remoteName,
-                    args = formatArgs(...),
-                    time = os.date("%H:%M:%S")
-                }
-                table.insert(dungeonEvents, event)
-                print("[DUNGEON] "..remoteName.." -> Args: "..event.args)
-            end
-            
-            -- Check if related to rewards
-            if containsKeyword(remoteName, rewardKeywords) or 
-               containsKeyword(formatArgs(...), rewardKeywords) then
-                local event = {
-                    remote = remoteName,
-                    args = formatArgs(...),
-                    time = os.date("%H:%M:%S")
-                }
-                table.insert(rewardEvents, event)
-                print("[REWARD] "..remoteName.." -> Args: "..event.args)
-            end
-            
-            -- Check if related to exp
-            if containsKeyword(remoteName, expKeywords) or 
-               containsKeyword(formatArgs(...), expKeywords) then
-                local event = {
-                    remote = remoteName,
-                    args = formatArgs(...),
-                    time = os.date("%H:%M:%S")
-                }
-                table.insert(expEvents, event)
-                print("[EXP] "..remoteName.." -> Args: "..event.args)
-            end
+        -- Check if related to dungeons
+        if containsKeyword(remoteName, dungeonKeywords) or 
+           containsKeyword(argsStr, dungeonKeywords) then
+            local event = {
+                remote = remoteName,
+                args = argsStr,
+                time = os.date("%H:%M:%S")
+            }
+            table.insert(dungeonEvents, event)
+            print("[DUNGEON] "..remoteName.." -> Args: "..event.args)
+        end
+        
+        -- Check if related to rewards
+        if containsKeyword(remoteName, rewardKeywords) or 
+           containsKeyword(argsStr, rewardKeywords) then
+            local event = {
+                remote = remoteName,
+                args = argsStr,
+                time = os.date("%H:%M:%S")
+            }
+            table.insert(rewardEvents, event)
+            print("[REWARD] "..remoteName.." -> Args: "..event.args)
+        end
+        
+        -- Check if related to exp
+        if containsKeyword(remoteName, expKeywords) or 
+           containsKeyword(argsStr, expKeywords) then
+            local event = {
+                remote = remoteName,
+                args = argsStr,
+                time = os.date("%H:%M:%S")
+            }
+            table.insert(expEvents, event)
+            print("[EXP] "..remoteName.." -> Args: "..event.args)
         end
         
         return oldFireServer(self, ...)
-    end)
-    
-    setreadonly(mt, true)
+    end
 end
 
 -- Find and hook all RemoteEvents
