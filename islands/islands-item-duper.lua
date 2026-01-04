@@ -806,12 +806,75 @@ function OtherSystems.scanCurrency()
     -- Check player attributes
     pcall(function()
         print("\n✓ Player attributes:")
-        for _, attr in ipairs(player:GetAttributes()) do
-            print(string.format("  %s: %s", attr, tostring(player:GetAttribute(attr))))
+        for name, value in pairs(player:GetAttributes()) do
+            print(string.format("  %s = %s", name, tostring(value)))
+            if name == "Coins" or name == "Admin" or name == "AchievementPoints" then
+                print(string.format("    ⭐ EXPLOITABLE: %s", name))
+            end
         end
     end)
     
     return found
+end
+
+function OtherSystems.setCoins(amount)
+    local player = Players.LocalPlayer
+    local currentCoins = player:GetAttribute("Coins")
+    
+    print(string.format("\n💰 Coin Manipulation"))
+    print(string.format("Current: %s", tostring(currentCoins)))
+    print(string.format("Setting to: %s", tostring(amount)))
+    
+    -- Try to set attribute (client-side only, server may reject)
+    pcall(function()
+        player:SetAttribute("Coins", amount)
+        task.wait(0.5)
+        print(string.format("New value: %s", tostring(player:GetAttribute("Coins"))))
+        print("\n⚠️ This is CLIENT-SIDE ONLY")
+        print("Server will overwrite if it validates properly")
+        print("Try buying something to see if server accepts it!")
+    end)
+end
+
+function OtherSystems.setAdmin(enabled)
+    local player = Players.LocalPlayer
+    
+    print(string.format("\n👑 Admin Flag Manipulation"))
+    print(string.format("Setting Admin to: %s", tostring(enabled)))
+    
+    pcall(function()
+        player:SetAttribute("Admin", enabled)
+        task.wait(0.5)
+        print(string.format("New value: %s", tostring(player:GetAttribute("Admin"))))
+        print("\n⚠️ This may not grant actual admin powers")
+        print("Server usually validates admin status separately")
+    end)
+end
+
+function OtherSystems.setAchievementPoints(amount)
+    local player = Players.LocalPlayer
+    
+    print(string.format("\n⭐ Achievement Points Manipulation"))
+    print(string.format("Setting to: %s", tostring(amount)))
+    
+    pcall(function()
+        player:SetAttribute("AchievementPoints", amount)
+        task.wait(0.5)
+        print(string.format("New value: %s", tostring(player:GetAttribute("AchievementPoints"))))
+    end)
+end
+
+function OtherSystems.monitorAttributeChanges()
+    print("\n👁️ Monitoring attribute changes...")
+    
+    local player = Players.LocalPlayer
+    
+    player.AttributeChanged:Connect(function(attributeName)
+        local value = player:GetAttribute(attributeName)
+        print(string.format("🔔 %s changed to: %s", attributeName, tostring(value)))
+    end)
+    
+    print("✓ Monitoring enabled. Changes will be logged.")
 end
 
 function OtherSystems.scanBlocks()
@@ -907,6 +970,10 @@ print("  RaceConditionExploiter.craftingSpam() - Spam crafting operations")
 
 print("\n💎 Other Systems:")
 print("  OtherSystems.scanCurrency() - Find coins/money systems")
+print("  OtherSystems.setCoins(amount) - Change coin amount (client-side)")
+print("  OtherSystems.setAdmin(true) - Try to enable admin flag")
+print("  OtherSystems.setAchievementPoints(amount) - Change achievement points")
+print("  OtherSystems.monitorAttributeChanges() - Watch for attribute changes")
 print("  OtherSystems.scanXP() - Find XP/level systems")
 print("  OtherSystems.scanBlocks() - Find block/building systems")
 
