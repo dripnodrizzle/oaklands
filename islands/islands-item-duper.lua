@@ -161,10 +161,36 @@ local function safeSerialize(data, depth)
     end
 end
 
+-- Helper function to safely require modules without hanging
+local function safeRequire(...)
+    local segments = {...}
+    local current = ReplicatedStorage
+    
+    for _, seg in ipairs(segments) do
+        current = current:FindFirstChild(seg)
+        if not current then 
+            return nil 
+        end
+    end
+    
+    local success, module = pcall(require, current)
+    if success then
+        return module
+    end
+    return nil
+end
+
 function NetworkInterceptor.hookNetworkRequests()
     pcall(function()
         local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
-        local NetworkService = RuntimeLib.import(nil, ReplicatedStorage, "TS", "network", "network-service").NetworkService
+        local networkModule = safeRequire("TS", "network", "network-service")
+        
+        if not networkModule then
+            warn("⚠️ Could not find NetworkService")
+            return
+        end
+        
+        local NetworkService = networkModule.NetworkService
         
         if NetworkService and NetworkService.sendClientRequest then
             local originalSendRequest = NetworkService.sendClientRequest
@@ -275,8 +301,9 @@ function RequestSpamDuper.spamRequest(requestType, data, count)
     print(string.format("\n🔄 Spamming %d requests...", count))
     
     pcall(function()
-        local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
-        local NetworkService = RuntimeLib.import(nil, ReplicatedStorage, "TS", "network", "network-service").NetworkService
+        local networkModule = safeRequire("TS", "network", "network-service")
+        if not networkModule then return end
+        local NetworkService = networkModule.NetworkService
         
         if NetworkService and NetworkService.sendClientRequest then
             -- Send multiple requests rapidly
@@ -302,8 +329,9 @@ function StorageTransferDuper.findStorageRemotes()
     print("\n=== Scanning for Storage Remotes ===")
     
     pcall(function()
-        local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
-        local Remotes = RuntimeLib.import(nil, ReplicatedStorage, "TS", "remotes", "remotes").default
+        local remotesModule = safeRequire("TS", "remotes", "remotes")
+        if not remotesModule then return end
+        local Remotes = remotesModule.default
         
         if Remotes then
             -- Look for storage-related remotes
@@ -426,8 +454,9 @@ function RequestIdFinder.findItemRequestIds()
     print("\n=== Finding Item-Related Request IDs ===")
     
     pcall(function()
-        local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
-        local ClientRequestId = RuntimeLib.import(nil, ReplicatedStorage, "TS", "event", "client-request-id").ClientRequestId
+        local clientRequestModule = safeRequire("TS", "event", "client-request-id")
+        if not clientRequestModule then return end
+        local ClientRequestId = clientRequestModule.ClientRequestId
         
         if ClientRequestId then
             print("✓ Found ClientRequestId enum")
