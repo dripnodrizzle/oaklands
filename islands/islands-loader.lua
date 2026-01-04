@@ -74,11 +74,11 @@ local LoadedScripts = {}
 local function loadScript(key)
     if not SCRIPTS[key] then
         warn("Script '" .. key .. "' not found!")
-        return false
+        return nil
     end
     
     if LoadedScripts[key] then
-        warn("Script '" .. key .. "' already loaded!")
+        print("Script '" .. key .. "' already loaded!")
         return LoadedScripts[key]
     end
     
@@ -89,16 +89,23 @@ local function loadScript(key)
     print(string.format("   %s", script.description))
     
     local success, result = pcall(function()
-        return loadstring(game:HttpGet(url))()
+        local code = game:HttpGet(url)
+        local func = loadstring(code)
+        if not func then
+            error("Failed to compile script")
+        end
+        return func()
     end)
     
     if success then
         print(string.format("✅ %s loaded successfully", script.name))
-        LoadedScripts[key] = result
+        LoadedScripts[key] = result or true  -- Store true if script returns nothing
         return result
     else
-        warn(string.format("❌ Failed to load %s: %s", script.name, tostring(result)))
-        return false
+        warn(string.format("❌ Failed to load %s", script.name))
+        warn(string.format("   Error: %s", tostring(result)))
+        warn(string.format("   URL: %s", url))
+        return nil
     end
 end
 
