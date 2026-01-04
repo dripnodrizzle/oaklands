@@ -45,27 +45,35 @@ end
 -- =====================================================
 
 local MemorySuppressor = {}
+MemorySuppressor.suppressedCount = 0
 
 function MemorySuppressor.suppressMemoryWarnings()
-    -- Hook Stats methods that check memory
+    -- Hook warn function directly
+    local oldWarn = warn
+    
+    getgenv().warn = function(...)
+        local args = {...}
+        local message = table.concat(args, " ")
+        
+        -- Filter out memory tracking warnings
+        if string.find(message, "Memory tracking is currently disabled") or
+           string.find(message, "MemoryTrackingEnabled") then
+            MemorySuppressor.suppressedCount = MemorySuppressor.suppressedCount + 1
+            return
+        end
+        
+        return oldWarn(...)
+    end
+    
+    -- Also try to enable memory tracking
     pcall(function()
-        -- Enable memory tracking if possible
         if Stats.MemoryTrackingEnabled ~= nil then
             Stats.MemoryTrackingEnabled = true
             print("✓ Enabled memory tracking")
         end
     end)
     
-    -- Suppress LogService messages about memory
-    local connection = LogService.MessageOut:Connect(function(message, messageType)
-        if string.find(message, "Memory tracking is currently disabled") then
-            -- Suppress this message
-            return
-        end
-    end)
-    
-    print("✓ Suppressed memory tracking warnings")
-    return connection
+    print("✓ Hooked warn() to suppress memory warnings")
 end
 
 -- =====================================================
