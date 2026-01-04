@@ -1,7 +1,8 @@
 -- Islands Remote Spy & Decoder
 -- Intercept and decode obfuscated RemoteEvents
 
-print("Islands Remote Spy Loading...")
+-- QUIET MODE: Set to false to enable verbose logging
+local QUIET_MODE = true
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -64,20 +65,22 @@ function TrafficInterceptor.hookRemote(remote, remotePath)
                 local args = {...}
                 local decodedName = RemoteDecoder.decodeRemoteName(remote.Name)
                 
-                print(string.format("→ [SEND] %s (%d args)", decodedName, #args))
-                
-                -- Log arguments
-                for i, arg in ipairs(args) do
-                    local argType = type(arg)
-                    local argValue = tostring(arg)
+                if not QUIET_MODE then
+                    print(string.format("→ [SEND] %s (%d args)", decodedName, #args))
                     
-                    if argType == "table" then
-                        pcall(function()
-                            argValue = HttpService:JSONEncode(arg)
-                        end)
+                    -- Log arguments
+                    for i, arg in ipairs(args) do
+                        local argType = type(arg)
+                        local argValue = tostring(arg)
+                        
+                        if argType == "table" then
+                            pcall(function()
+                                argValue = HttpService:JSONEncode(arg)
+                            end)
+                        end
+                        
+                        print(string.format("   [%d] %s: %s", i, argType, argValue))
                     end
-                    
-                    print(string.format("   [%d] %s: %s", i, argType, argValue))
                 end
                 
                 table.insert(TrafficInterceptor.traffic, {
@@ -92,27 +95,29 @@ function TrafficInterceptor.hookRemote(remote, remotePath)
             end
         end
     end)
-    end
     
     -- Hook OnClientEvent
-    remote.OnClientEvent:Connect(function(...)
+    pcall(function()
+        remote.OnClientEvent:Connect(function(...)
         local args = {...}
         local decodedName = RemoteDecoder.decodeRemoteName(remote.Name)
         
-        print(string.format("← [RECV] %s (%d args)", decodedName, #args))
-        
-        -- Log arguments
-        for i, arg in ipairs(args) do
-            local argType = type(arg)
-            local argValue = tostring(arg)
+        if not QUIET_MODE then
+            print(string.format("← [RECV] %s (%d args)", decodedName, #args))
             
-            if argType == "table" then
-                pcall(function()
-                    argValue = HttpService:JSONEncode(arg)
-                end)
+            -- Log arguments
+            for i, arg in ipairs(args) do
+                local argType = type(arg)
+                local argValue = tostring(arg)
+                
+                if argType == "table" then
+                    pcall(function()
+                        argValue = HttpService:JSONEncode(arg)
+                    end)
+                end
+                
+                print(string.format("   [%d] %s: %s", i, argType, argValue))
             end
-            
-            print(string.format("   [%d] %s: %s", i, argType, argValue))
         end
         
         table.insert(TrafficInterceptor.traffic, {
