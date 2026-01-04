@@ -718,51 +718,101 @@ function RemoteScanner.hookPurchaseRemote()
     print("✓ Found:", purchaseRemote:GetFullName())
     print("Type:", purchaseRemote.ClassName)
     
-    -- Hook using metamethods for RemoteEvent
-    local mt = getrawmetatable(purchaseRemote)
-    setreadonly(mt, false)
-    
-    local oldNamecall = mt.__namecall
-    
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        
-        if self == purchaseRemote and method == "FireServer" then
-            print("\n💰 PURCHASE REQUEST INTERCEPTED!")
-            print("Arguments:")
+    -- Method 1: Try hookfunction
+    local success1 = pcall(function()
+        local oldFire = hookfunction(purchaseRemote.FireServer, function(self, ...)
+            local args = {...}
+            
+            print("\n💰 PURCHASE DETECTED (hookfunction)!")
             for i, arg in ipairs(args) do
                 if type(arg) == "table" then
                     print(string.format("  [%d] table:", i))
                     for k, v in pairs(arg) do
-                        if type(v) == "table" then
-                            print(string.format("    %s = table (nested)", tostring(k)))
-                            for k2, v2 in pairs(v) do
-                                print(string.format("      %s = %s", tostring(k2), tostring(v2)))
-                            end
-                        else
-                            print(string.format("    %s = %s (%s)", tostring(k), tostring(v), type(v)))
-                        end
+                        print(string.format("    %s = %s", tostring(k), tostring(v)))
                     end
                 else
-                    print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
+                    print(string.format("  [%d] %s", i, tostring(arg)))
                 end
             end
             
-            -- Store for analysis
-            table.insert(RemoteScanner.remoteTraffic, {
-                remote = "ServerSideBulkPurchaseEvent",
-                args = args,
-                timestamp = tick()
-            })
-        end
-        
-        return oldNamecall(self, ...)
+            return oldFire(self, ...)
+        end)
+        print("✓ Method 1 (hookfunction) applied")
     end)
     
-    setreadonly(mt, true)
+    if not success1 then
+        print("⚠️ Method 1 failed, trying Method 2...")
+        
+        -- Method 2: Try metamethod
+        local success2 = pcall(function()
+            local mt = getrawmetatable(game)
+            local oldNamecall = mt.__namecall
+            setreadonly(mt, false)
+            
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                
+                if self == purchaseRemote and method == "FireServer" then
+                    local args = {...}
+                    
+                    print("\n💰 PURCHASE DETECTED (metamethod)!")
+                    for i, arg in ipairs(args) do
+                        if type(arg) == "table" then
+                            print(string.format("  [%d] table:", i))
+                            for k, v in pairs(arg) do
+                                print(string.format("    %s = %s", tostring(k), tostring(v)))
+                            end
+                        else
+                            print(string.format("  [%d] %s", i, tostring(arg)))
+                        end
+                    end
+                end
+                
+                return oldNamecall(self, ...)
+            end)
+            
+            setreadonly(mt, true)
+            print("✓ Method 2 (metamethod) applied")
+        end)
+        
+        if not success2 then
+            print("⚠️ Method 2 failed, trying Method 3...")
+            
+            -- Method 3: Monitor all remotes globally
+            local success3 = pcall(function()
+                local mt = getrawmetatable(game)
+                setreadonly(mt, false)
+                local oldNamecall = mt.__namecall
+                
+                mt.__namecall = newcclosure(function(self, ...)
+                    local method = getnamecallmethod()
+                    
+                    if method == "FireServer" then
+                        local remoteName = self.Name
+                        if remoteName:lower():match("purchase") or remoteName:lower():match("buy") then
+                            print("\n💰 PURCHASE REMOTE FIRED:", self:GetFullName())
+                            local args = {...}
+                            for i, arg in ipairs(args) do
+                                print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
+                            end
+                        end
+                    end
+                    
+                    return oldNamecall(self, ...)
+                end)
+                
+                setreadonly(mt, true)
+                print("✓ Method 3 (global monitor) applied")
+            end)
+            
+            if not success3 then
+                warn("❌ All hooking methods failed!")
+            end
+        end
+    end
     
-    print("✓ Purchase remote hooked! Try buying something now.")
+    print("\n💡 Try buying something now. If nothing shows, the game might use")
+    print("   a different remote or method. Check RemoteScanner.scanAllRemotes()")
 end
 
 -- =====================================================
