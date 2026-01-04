@@ -117,14 +117,18 @@ local function loadScript(key)
         return nil
     end
     
-    print(string.format("✅ %s loaded successfully", script.name))
+    -- Store the result
     LoadedScripts[key] = result or true
     
-    if not result then
-        print("   ⚠️ Script returned nothing (this may be intentional)")
+    if result and type(result) == "table" then
+        print(string.format("✅ %s loaded successfully (returned %d functions)", script.name, #result))
+    elseif result then
+        print(string.format("✅ %s loaded successfully", script.name))
+    else
+        print(string.format("✅ %s loaded successfully (auto-run script)", script.name))
     end
     
-    return result
+    return LoadedScripts[key]
 end
 
 -- =====================================================
@@ -232,12 +236,22 @@ IslandsMetatable.__index = function(t, key)
         -- Auto-load if not already loaded
         if not LoadedScripts[key] then
             print(string.format("🔄 Auto-loading %s...", SCRIPTS[key].name))
-            loadScript(key)
+            local loaded = loadScript(key)
+            if not loaded then
+                warn(string.format("Failed to load %s - returning nil", SCRIPTS[key].name))
+                return nil
+            end
         end
-        return LoadedScripts[key]
+        
+        local cached = LoadedScripts[key]
+        if cached == true then
+            warn(string.format("%s loaded but has no functions (auto-run script)", SCRIPTS[key].name))
+        end
+        return cached
     end
     
     -- Nothing found
+    warn(string.format("Islands.%s not found (not a script or builtin function)", key))
     return nil
 end
 
