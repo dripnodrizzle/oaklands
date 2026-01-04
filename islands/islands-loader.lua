@@ -305,11 +305,18 @@ print("   Islands.isLoaded('spy')      - Check if script is loaded")
 print("   Islands.loaded               - View all loaded scripts")
 
 print("\n" .. string.rep("=", 52))
-print("Ready! Type a command to get started")
-print("Example: Islands.presets.monitoring()")
+print("✅ Islands loader ready!")
+print("💡 Use: local Islands = _G.Islands")
+print("   Or:  Islands.presets.monitoring()")
 print(string.rep("=", 52))
 
--- Make it global for easy access
+-- Make it global IMMEDIATELY
+getgenv().Islands = Islands
 _G.Islands = Islands
+
+-- Small delay to ensure global is set
+task.wait(0.1)
+
+print("✅ Global Islands table is ready!")
 
 return Islands
