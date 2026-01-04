@@ -705,6 +705,50 @@ function RemoteScanner.showRecentTraffic(count)
     end
 end
 
+function RemoteScanner.hookPurchaseRemote()
+    print("\n💰 Hooking Purchase Remote...")
+    
+    local purchaseRemote = game:GetService("RobloxReplicatedStorage"):FindFirstChild("ServerSideBulkPurchaseEvent")
+    
+    if not purchaseRemote then
+        warn("❌ Purchase remote not found!")
+        return
+    end
+    
+    print("✓ Found:", purchaseRemote:GetFullName())
+    
+    local oldFire = purchaseRemote.FireServer
+    
+    purchaseRemote.FireServer = function(self, ...)
+        local args = {...}
+        
+        print("\n💰 PURCHASE REQUEST INTERCEPTED!")
+        print("Arguments:")
+        for i, arg in ipairs(args) do
+            if type(arg) == "table" then
+                print(string.format("  [%d] table:", i))
+                for k, v in pairs(arg) do
+                    print(string.format("    %s = %s (%s)", tostring(k), tostring(v), type(v)))
+                end
+            else
+                print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
+            end
+        end
+        
+        -- Store for analysis
+        table.insert(RemoteScanner.remoteTraffic, {
+            remote = "ServerSideBulkPurchaseEvent",
+            args = args,
+            timestamp = tick()
+        })
+        
+        -- Call original (comment this out to block purchases)
+        return oldFire(self, ...)
+    end
+    
+    print("✓ Purchase remote hooked! Try buying something now.")
+end
+
 -- =====================================================
 -- RACE CONDITION EXPLOITER
 -- =====================================================
@@ -961,6 +1005,7 @@ print("  NetworkInterceptor.showRequestId(ID, count) - Show specific RequestId d
 print("  NetworkInterceptor.dumpItemRequests(10) - Show recent item requests")
 print("  RemoteScanner.scanAllRemotes() - Find ALL RemoteEvents/Functions")
 print("  RemoteScanner.hookAllRemotes() - Hook and monitor ALL remotes")
+print("  RemoteScanner.hookPurchaseRemote() - Hook ServerSideBulkPurchaseEvent")
 print("  RemoteScanner.showRecentTraffic(10) - Show recent remote calls")
 
 print("\n⚡ Race Condition Exploits:")
