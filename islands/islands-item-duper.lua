@@ -118,6 +118,33 @@ local NetworkInterceptor = {}
 NetworkInterceptor.requests = {}
 NetworkInterceptor.itemRequests = {}
 
+-- Helper to safely serialize data that may contain Instances
+local function safeSerialize(data, depth)
+    depth = depth or 0
+    if depth > 3 then return "..." end
+    
+    local dataType = type(data)
+    
+    if dataType == "table" then
+        local result = {}
+        for k, v in pairs(data) do
+            result[tostring(k)] = safeSerialize(v, depth + 1)
+        end
+        return result
+    elseif dataType == "userdata" then
+        -- Instance or other userdata
+        local success, name = pcall(function() return data.Name end)
+        if success then
+            return string.format("[Instance: %s]", tostring(name))
+        end
+        return "[Userdata]"
+    elseif dataType == "function" then
+        return "[Function]"
+    else
+        return data
+    end
+end
+
 function NetworkInterceptor.hookNetworkRequests()
     pcall(function()
         local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
@@ -127,6 +154,9 @@ function NetworkInterceptor.hookNetworkRequests()
             local originalSendRequest = NetworkService.sendClientRequest
             
             NetworkService.sendClientRequest = function(self, requestId, data)
+                -- Safely serialize the data
+                local serializedData = safeSerialize(data)
+                
                 -- Log all requests
                 pcall(function()
                     print(string.format("📡 Request: %s", tostring(requestId)))
@@ -134,7 +164,7 @@ function NetworkInterceptor.hookNetworkRequests()
                 
                 table.insert(NetworkInterceptor.requests, {
                     requestId = requestId,
-                    data = data,
+                    data = serializedData,
                     timestamp = tick()
                 })
                 
@@ -142,13 +172,13 @@ function NetworkInterceptor.hookNetworkRequests()
                 if data and type(data) == "table" and (data.item or data.itemId or data.slot or data.amount) then
                     pcall(function()
                         print("  📦 Item-related request detected!")
-                        local jsonData = game:GetService("HttpService"):JSONEncode(data)
+                        local jsonData = game:GetService("HttpService"):JSONEncode(serializedData)
                         print(string.format("  Data: %s", jsonData))
                     end)
                     
                     table.insert(NetworkInterceptor.itemRequests, {
                         requestId = requestId,
-                        data = data,
+                        data = serializedData,
                         timestamp = tick()
                     })
                 end
