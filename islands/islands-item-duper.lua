@@ -625,6 +625,228 @@ function ItemCloner.massClone(item, count)
 end
 
 -- =====================================================
+-- COMPREHENSIVE REMOTE SCANNER
+-- =====================================================
+
+local RemoteScanner = {}
+RemoteScanner.hookedRemotes = {}
+RemoteScanner.remoteTraffic = {}
+
+function RemoteScanner.scanAllRemotes()
+    print("\n=== Scanning ALL RemoteEvents/Functions ===")
+    
+    local remoteEvents = {}
+    local remoteFunctions = {}
+    
+    for _, descendant in ipairs(game:GetDescendants()) do
+        if descendant:IsA("RemoteEvent") then
+            table.insert(remoteEvents, descendant:GetFullName())
+        elseif descendant:IsA("RemoteFunction") then
+            table.insert(remoteFunctions, descendant:GetFullName())
+        end
+    end
+    
+    print(string.format("Found %d RemoteEvents, %d RemoteFunctions", #remoteEvents, #remoteFunctions))
+    
+    return {events = remoteEvents, functions = remoteFunctions}
+end
+
+function RemoteScanner.hookAllRemotes()
+    print("\n🔗 Hooking ALL RemoteEvents...")
+    
+    local hooked = 0
+    
+    for _, descendant in ipairs(game:GetDescendants()) do
+        if descendant:IsA("RemoteEvent") then
+            pcall(function()
+                if not RemoteScanner.hookedRemotes[descendant] then
+                    local oldFire = descendant.FireServer
+                    if oldFire then
+                        descendant.FireServer = function(self, ...)
+                            local args = {...}
+                            
+                            -- Log all traffic
+                            table.insert(RemoteScanner.remoteTraffic, {
+                                remote = descendant:GetFullName(),
+                                args = args,
+                                timestamp = tick()
+                            })
+                            
+                            print(string.format("🔥 RemoteEvent: %s", descendant.Name))
+                            for i, arg in ipairs(args) do
+                                print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
+                            end
+                            
+                            return oldFire(self, ...)
+                        end
+                        
+                        RemoteScanner.hookedRemotes[descendant] = true
+                        hooked = hooked + 1
+                    end
+                end
+            end)
+        end
+    end
+    
+    print(string.format("✓ Hooked %d RemoteEvents", hooked))
+end
+
+function RemoteScanner.showRecentTraffic(count)
+    count = count or 10
+    print(string.format("\n=== Recent Remote Traffic (last %d) ===", count))
+    
+    local start = math.max(1, #RemoteScanner.remoteTraffic - count + 1)
+    for i = start, #RemoteScanner.remoteTraffic do
+        local traffic = RemoteScanner.remoteTraffic[i]
+        print(string.format("\n[%d] %s (%.1fs ago)", i, traffic.remote, tick() - traffic.timestamp))
+        for j, arg in ipairs(traffic.args) do
+            print(string.format("  [%d] %s", j, tostring(arg)))
+        end
+    end
+end
+
+-- =====================================================
+-- RACE CONDITION EXPLOITER
+-- =====================================================
+
+local RaceConditionExploiter = {}
+
+function RaceConditionExploiter.rapidHotbarSwap()
+    print("\n⚡ Starting rapid hotbar swap exploit...")
+    print("This will rapidly change hotbar slots to find race conditions")
+    
+    local success, NetworkService = pcall(function()
+        return safeRequire("TS", "network", "network-service").NetworkService
+    end)
+    
+    if not success or not NetworkService then
+        warn("❌ NetworkService not found")
+        return
+    end
+    
+    print("💡 Equip an item, then run this:")
+    print("  -- Rapidly move item between slots")
+    print("  for i = 1, 100 do")
+    print("    -- Change hotbar slots rapidly")
+    print("  end")
+end
+
+function RaceConditionExploiter.dropPickupSpam(itemName)
+    print(string.format("\n⚡ Drop/Pickup spam for: %s", itemName or "item"))
+    print("This will spam drop and pickup to find desyncs")
+    
+    local player = Players.LocalPlayer
+    local character = player.Character
+    
+    if not character then
+        warn("❌ No character found")
+        return
+    end
+    
+    local tool = character:FindFirstChildOfClass("Tool") or player.Backpack:FindFirstChildOfClass("Tool")
+    
+    if not tool then
+        warn("❌ No tool found. Equip an item first!")
+        return
+    end
+    
+    print(string.format("✓ Found tool: %s", tool.Name))
+    print("🔄 Starting spam (10 iterations)...")
+    
+    for i = 1, 10 do
+        pcall(function()
+            -- Equip
+            tool.Parent = character
+            task.wait(0.05)
+            -- Drop
+            tool.Parent = workspace
+            task.wait(0.05)
+            -- Pickup
+            tool.Parent = player.Backpack
+            task.wait(0.05)
+        end)
+        print(string.format("  Iteration %d/10", i))
+    end
+    
+    print("✓ Spam complete. Check for inventory desyncs!")
+end
+
+function RaceConditionExploiter.craftingSpam()
+    print("\n⚡ Crafting spam exploit")
+    print("Open a crafting menu and spam craft button while moving ingredients")
+    print("This may cause duplication if server doesn't validate properly")
+end
+
+-- =====================================================
+-- OTHER SYSTEMS EXPLOITER
+-- =====================================================
+
+local OtherSystems = {}
+
+function OtherSystems.scanCurrency()
+    print("\n💰 Scanning for currency systems...")
+    
+    local player = Players.LocalPlayer
+    local found = {}
+    
+    -- Check leaderstats
+    pcall(function()
+        local leaderstats = player:FindFirstChild("leaderstats")
+        if leaderstats then
+            print("✓ Found leaderstats:")
+            for _, stat in ipairs(leaderstats:GetChildren()) do
+                if stat:IsA("IntValue") or stat:IsA("NumberValue") then
+                    print(string.format("  %s: %s", stat.Name, tostring(stat.Value)))
+                    table.insert(found, {name = stat.Name, value = stat.Value, instance = stat})
+                end
+            end
+        end
+    end)
+    
+    -- Check player attributes
+    pcall(function()
+        print("\n✓ Player attributes:")
+        for _, attr in ipairs(player:GetAttributes()) do
+            print(string.format("  %s: %s", attr, tostring(player:GetAttribute(attr))))
+        end
+    end)
+    
+    return found
+end
+
+function OtherSystems.scanBlocks()
+    print("\n🧱 Scanning for block/building system...")
+    
+    pcall(function()
+        local blockModule = safeRequire("TS", "block", "block-service")
+        if blockModule then
+            print("✓ Found block service")
+            for key, _ in pairs(blockModule) do
+                print(string.format("  %s", key))
+            end
+        end
+    end)
+end
+
+function OtherSystems.scanXP()
+    print("\n⭐ Scanning for XP/Level system...")
+    
+    local player = Players.LocalPlayer
+    
+    pcall(function()
+        -- Check for level in PlayerGui
+        for _, gui in ipairs(player.PlayerGui:GetDescendants()) do
+            if gui:IsA("TextLabel") then
+                local text = gui.Text:lower()
+                if text:match("level") or text:match("xp") or text:match("exp") then
+                    print(string.format("✓ Found: %s = '%s'", gui:GetFullName(), gui.Text))
+                end
+            end
+        end
+    end)
+end
+
+-- =====================================================
 -- REQUEST ID FINDER
 -- =====================================================
 
@@ -674,8 +896,19 @@ print("  ItemScanner.scanInventory() - Scan current items")
 print("  NetworkInterceptor.analyzeRequestTypes() - Show all RequestIds captured")
 print("  NetworkInterceptor.showRequestId(ID, count) - Show specific RequestId details")
 print("  NetworkInterceptor.dumpItemRequests(10) - Show recent item requests")
-print("  StorageTransferDuper.findStorageRemotes() - Find storage remotes")
-print("  RequestIdFinder.findItemRequestIds() - Find item request IDs")
+print("  RemoteScanner.scanAllRemotes() - Find ALL RemoteEvents/Functions")
+print("  RemoteScanner.hookAllRemotes() - Hook and monitor ALL remotes")
+print("  RemoteScanner.showRecentTraffic(10) - Show recent remote calls")
+
+print("\n⚡ Race Condition Exploits:")
+print("  RaceConditionExploiter.rapidHotbarSwap() - Rapid slot changes")
+print("  RaceConditionExploiter.dropPickupSpam() - Spam drop/pickup (equip item first!)")
+print("  RaceConditionExploiter.craftingSpam() - Spam crafting operations")
+
+print("\n💎 Other Systems:")
+print("  OtherSystems.scanCurrency() - Find coins/money systems")
+print("  OtherSystems.scanXP() - Find XP/level systems")
+print("  OtherSystems.scanBlocks() - Find block/building systems")
 
 print("\n🔄 Duplication Methods:")
 print("  RaceConditionDuper.enable(slot) - Race condition dupe (EXPERIMENTAL)")
@@ -705,6 +938,9 @@ return {
     InventoryFinder = InventoryFinder,
     ItemScanner = ItemScanner,
     NetworkInterceptor = NetworkInterceptor,
+    RemoteScanner = RemoteScanner,
+    RaceConditionExploiter = RaceConditionExploiter,
+    OtherSystems = OtherSystems,
     RaceConditionDuper = RaceConditionDuper,
     RequestSpamDuper = RequestSpamDuper,
     StorageTransferDuper = StorageTransferDuper,
