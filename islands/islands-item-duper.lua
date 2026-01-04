@@ -755,58 +755,107 @@ function RemoteScanner.manualPurchaseCall(data)
     print("Current coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
 end
 
-function RemoteScanner.hookPurchaseRemote()
-    print("\n💰 Hooking client_request_7 (Purchase Remote)...")
+function RemoteScanner.testVendingPurchase(vendingMachine)
+    print("\n💰 Testing Vending Machine Purchase Exploits...")
     
-    local clientRequest7 = game:GetService("ReplicatedStorage")
-        :WaitForChild("rbxts_include")
-        :WaitForChild("node_modules")
-        :WaitForChild("@rbxts")
-        :WaitForChild("net")
-        :WaitForChild("out")
-        :WaitForChild("_NetManaged")
-        :FindFirstChild("client_request_7")
-    
-    if not clientRequest7 then
-        warn("❌ client_request_7 not found!")
+    if not vendingMachine then
+        warn("❌ Pass a vending machine: testVendingPurchase(workspace.Islands[...].vendingMachine1)")
         return
     end
     
-    print("✓ Found:", clientRequest7:GetFullName())
-    
-    -- Hook using hookfunction
-    local success = pcall(function()
-        local oldInvoke = clientRequest7.InvokeServer
-        
-        clientRequest7.InvokeServer = function(self, ...)
-            local args = {...}
-            
-            print("\n💰 PURCHASE DETECTED!")
-            print("Arguments:")
-            for i, arg in ipairs(args) do
-                if type(arg) == "table" then
-                    print(string.format("  [%d] table:", i))
-                    for k, v in pairs(arg) do
-                        print(string.format("    %s = %s", tostring(k), tostring(v)))
-                    end
-                else
-                    print(string.format("  [%d] %s", i, tostring(arg)))
-                end
-            end
-            
-            -- Call original
-            local result = oldInvoke(self, ...)
-            print("Result:", tostring(result))
-            
-            return result
+    -- Find the obfuscated purchase remote
+    local purchaseRemote = nil
+    for _, remote in ipairs(game:GetService("ReplicatedStorage").rbxts_include.node_modules["@rbxts"].net.out._NetManaged:GetChildren()) do
+        if remote.Name:match("vdej") or remote.Name:match("zddhz") then
+            purchaseRemote = remote
+            break
         end
-        
-        print("✓ Hooked! Now buy something to see the purchase data.")
-    end)
-    
-    if not success then
-        warn("❌ Hook failed - try testPurchaseExploit() instead")
     end
+    
+    if not purchaseRemote then
+        warn("❌ Purchase remote not found! Looking for obfuscated name with 'vdej'")
+        return
+    end
+    
+    print("✓ Found:", purchaseRemote.Name)
+    print("\n📝 Testing exploits on vending machine:", vendingMachine:GetFullName())
+    
+    local uuid = game:GetService("HttpService"):GenerateGUID(false)
+    
+    -- Test 1: Negative amount (might give items AND coins)
+    print("\n[Test 1] Negative amount...")
+    pcall(function()
+        purchaseRemote:FireServer(uuid, {{
+            vendingMachine = vendingMachine,
+            player_tracking_category = "exploit",
+            amount = -999
+        }})
+        print("✓ Sent amount = -999")
+    end)
+    task.wait(1)
+    print("Coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
+    
+    -- Test 2: Huge amount
+    print("\n[Test 2] Huge amount...")
+    pcall(function()
+        purchaseRemote:FireServer(uuid, {{
+            vendingMachine = vendingMachine,
+            player_tracking_category = "exploit",
+            amount = 999999
+        }})
+        print("✓ Sent amount = 999999")
+    end)
+    task.wait(1)
+    print("Coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
+    
+    -- Test 3: Zero amount
+    print("\n[Test 3] Zero amount...")
+    pcall(function()
+        purchaseRemote:FireServer(uuid, {{
+            vendingMachine = vendingMachine,
+            player_tracking_category = "exploit",
+            amount = 0
+        }})
+        print("✓ Sent amount = 0")
+    end)
+    task.wait(1)
+    print("Coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
+    
+    -- Test 4: String amount
+    print("\n[Test 4] String amount...")
+    pcall(function()
+        purchaseRemote:FireServer(uuid, {{
+            vendingMachine = vendingMachine,
+            player_tracking_category = "exploit",
+            amount = "999"
+        }})
+        print("✓ Sent amount = \"999\"")
+    end)
+    task.wait(1)
+    print("Coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
+    
+    -- Test 5: Duplicate request (same UUID)
+    print("\n[Test 5] Duplicate purchase (same UUID)...")
+    local sameUuid = game:GetService("HttpService"):GenerateGUID(false)
+    pcall(function()
+        purchaseRemote:FireServer(sameUuid, {{
+            vendingMachine = vendingMachine,
+            player_tracking_category = "exploit",
+            amount = 1
+        }})
+        task.wait(0.1)
+        purchaseRemote:FireServer(sameUuid, {{
+            vendingMachine = vendingMachine,
+            player_tracking_category = "exploit",
+            amount = 1
+        }})
+        print("✓ Sent same UUID twice")
+    end)
+    task.wait(1)
+    print("Coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
+    
+    print("\n💡 Check your coins and inventory!")
+    print("If exploits worked, you'll see unexpected changes")
 end
 
 function RemoteScanner.showRecentTraffic(count)
@@ -1184,9 +1233,9 @@ RequestIdFinder.findItemRequestIds()
 print("\n=== Available Commands ===")
 print("\n📊 Analysis:")
 print("  ItemScanner.scanInventory() - Scan current items")
-print("  NetworkInterceptor.analyzeRequestTypes() - Show all RequestIds captured")
-print("  RemoteScanner.testPurchaseExploit() - Test purchase manipulation")
-print("  RemoteScanner.manualPurchaseCall({data}) - Manually call purchase remote")
+print("  RemoteScanner.testVendingPurchase(vendingMachine) - Test purchase exploits")
+print("  -- Example: RemoteScanner.testVendingPurchase(workspace.Islands[YourIsland].Blocks.vendingMachine1)")
+print("  OtherSystems.scanCurrency() - Find coins/stats")
 
 print("\n⚡ Race Condition Exploits:")
 print("  RaceConditionExploiter.rapidHotbarSwap() - Rapid slot changes")
