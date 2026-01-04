@@ -48,24 +48,39 @@ local MemorySuppressor = {}
 MemorySuppressor.suppressedCount = 0
 
 function MemorySuppressor.suppressMemoryWarnings()
-    -- Hook warn function directly
+    -- Hook warn function directly using multiple methods
     local oldWarn = warn
     
-    getgenv().warn = function(...)
+    -- Method 1: Global override
+    local function newWarn(...)
         local args = {...}
-        local message = table.concat(args, " ")
+        local success, message = pcall(function()
+            return table.concat(args, " ")
+        end)
         
-        -- Filter out memory tracking warnings
-        if string.find(message, "Memory tracking is currently disabled") or
-           string.find(message, "MemoryTrackingEnabled") then
-            MemorySuppressor.suppressedCount = MemorySuppressor.suppressedCount + 1
-            return
+        if success and message then
+            -- Filter out memory tracking warnings
+            if string.find(message, "Memory tracking is currently disabled") or
+               string.find(message, "MemoryTrackingEnabled") then
+                MemorySuppressor.suppressedCount = MemorySuppressor.suppressedCount + 1
+                return
+            end
         end
         
         return oldWarn(...)
     end
     
-    -- Also try to enable memory tracking
+    -- Set in multiple places
+    warn = newWarn
+    getgenv().warn = newWarn
+    _G.warn = newWarn
+    
+    -- Also try rawset
+    pcall(function()
+        rawset(getfenv(), "warn", newWarn)
+    end)
+    
+    -- Try to enable memory tracking
     pcall(function()
         if Stats.MemoryTrackingEnabled ~= nil then
             Stats.MemoryTrackingEnabled = true
@@ -73,7 +88,7 @@ function MemorySuppressor.suppressMemoryWarnings()
         end
     end)
     
-    print("✓ Hooked warn() to suppress memory warnings")
+    print("✓ Hooked warn() to suppress memory warnings (multi-method)")
 end
 
 -- =====================================================
