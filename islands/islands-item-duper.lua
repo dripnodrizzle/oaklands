@@ -228,8 +228,66 @@ function NetworkInterceptor.hookNetworkRequests()
             
             print("✓ Hooked NetworkService.sendClientRequest")
             return true
+        else
+            warn("⚠️ NetworkService not found, trying RemoteEvent fallback...")
+            return NetworkInterceptor.hookRemoteEventsFallback()
         end
     end)
+end
+
+-- Fallback: Hook RemoteEvents directly
+function NetworkInterceptor.hookRemoteEventsFallback()
+    print("🔄 Scanning for RemoteEvents...")
+    
+    local function hookRemote(remote)
+        if not remote:IsA("RemoteEvent") then return end
+        
+        pcall(function()
+            local oldFireServer = remote.FireServer
+            remote.FireServer = function(self, ...)
+                local args = {...}
+                
+                -- Try to detect item-related calls
+                local isItemRelated = false
+                for _, arg in ipairs(args) do
+                    if type(arg) == "table" then
+                        if arg.item or arg.itemId or arg.slot or arg.amount or arg.itemName then
+                            isItemRelated = true
+                            break
+                        end
+                    end
+                end
+                
+                if isItemRelated then
+                    print("📦 Item-related RemoteEvent fired:", remote:GetFullName())
+                    
+                    local serializedData = {}
+                    for i, arg in ipairs(args) do
+                        serializedData[i] = safeSerialize(arg)
+                    end
+                    
+                    table.insert(NetworkInterceptor.itemRequests, {
+                        remote = remote:GetFullName(),
+                        args = serializedData,
+                        timestamp = tick()
+                    })
+                end
+                
+                return oldFireServer(self, ...)
+            end
+        end)
+    end
+    
+    -- Hook existing remotes
+    for _, remote in ipairs(game:GetDescendants()) do
+        hookRemote(remote)
+    end
+    
+    -- Hook new remotes
+    game.DescendantAdded:Connect(hookRemote)
+    
+    print("✓ Hooked RemoteEvents as fallback")
+    return true
 end
 
 function NetworkInterceptor.dumpItemRequests(count)
