@@ -99,34 +99,35 @@ function TrafficInterceptor.hookRemote(remote, remotePath)
     -- Hook OnClientEvent
     pcall(function()
         remote.OnClientEvent:Connect(function(...)
-        local args = {...}
-        local decodedName = RemoteDecoder.decodeRemoteName(remote.Name)
-        
-        if not QUIET_MODE then
-            print(string.format("← [RECV] %s (%d args)", decodedName, #args))
+            local args = {...}
+            local decodedName = RemoteDecoder.decodeRemoteName(remote.Name)
             
-            -- Log arguments
-            for i, arg in ipairs(args) do
-                local argType = type(arg)
-                local argValue = tostring(arg)
+            if not QUIET_MODE then
+                print(string.format("← [RECV] %s (%d args)", decodedName, #args))
                 
-                if argType == "table" then
-                    pcall(function()
-                        argValue = HttpService:JSONEncode(arg)
-                    end)
+                -- Log arguments
+                for i, arg in ipairs(args) do
+                    local argType = type(arg)
+                    local argValue = tostring(arg)
+                    
+                    if argType == "table" then
+                        pcall(function()
+                            argValue = HttpService:JSONEncode(arg)
+                        end)
+                    end
+                    
+                    print(string.format("   [%d] %s: %s", i, argType, argValue))
                 end
-                
-                print(string.format("   [%d] %s: %s", i, argType, argValue))
             end
-        end
-        
-        table.insert(TrafficInterceptor.traffic, {
-            direction = "receive",
-            remote = remote.Name,
-            decodedName = decodedName,
-            args = args,
-            timestamp = tick()
-        })
+            
+            table.insert(TrafficInterceptor.traffic, {
+                direction = "receive",
+                remote = remote.Name,
+                decodedName = decodedName,
+                args = args,
+                timestamp = tick()
+            })
+        end)
     end)
 end
 
