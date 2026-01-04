@@ -2,7 +2,33 @@
 
 A comprehensive collection of exploit scripts for the Roblox game "Islands" (Skyblock).
 
-## 📁 Scripts Overview
+## � Quick Start (Easiest Method)
+
+**Use the Master Loader:**
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-loader.lua"))()
+```
+
+Then use simple commands:
+```lua
+-- Load presets
+Islands.presets.monitoring()  -- Error suppressor + Remote spy
+Islands.presets.gameplay()    -- Interact + Chest + Chat
+Islands.presets.farming()     -- Auto-farming tools
+Islands.presets.full()        -- Everything
+
+-- Or load individual scripts
+Islands.chest()     -- Chest exploiter
+Islands.interact()  -- Interact exploiter
+Islands.spy()       -- Remote spy
+Islands.duper()     -- Item duper
+
+-- Use loaded scripts
+local Chest = Islands.chest()
+Chest.AutoChestOpener.enable(15)
+```
+
+## �📁 Scripts Overview
 
 ### Core Systems
 - **islands-core-utils.lua** - Core utilities salvaged from decompiled Islands code
@@ -71,42 +97,53 @@ A comprehensive collection of exploit scripts for the Roblox game "Islands" (Sky
 ## 🚀 Quick Start
 
 ### Basic Usage
-```lua
--- Load a script
-loadstring(game:HttpGet("your-url/islands-core-utils.lua"))()
 
--- Or use require if you have it as a module
-local CoreUtils = require(script.islands["islands-core-utils"])
+**Method 1: Master Loader (Recommended)**
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-loader.lua"))()
+Islands.presets.full()
+```
+
+**Method 2: Load Individual Scripts**
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-chest-exploiter.lua"))()
 ```
 
 ### Common Workflows
 
 #### Full Monitoring Setup
 ```lua
--- Load all monitoring scripts
-loadstring(game:HttpGet("url/islands-error-suppressor.lua"))()
-loadstring(game:HttpGet("url/islands-remote-spy.lua"))()
-loadstring(game:HttpGet("url/islands-main-hook.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-loader.lua"))()
+Islands.presets.monitoring()
 ```
 
 #### Chest Farming
 ```lua
-local ChestExploit = loadstring(game:HttpGet("url/islands-chest-exploiter.lua"))()
-ChestExploit.ChestFinder.findAllChests()
-ChestExploit.AutoChestOpener.enable(15) -- Auto-open within 15m
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-loader.lua"))()
+Islands.presets.farming()
+
+-- Then use commands
+local Chest = Islands.loaded.chest
+Chest.ChestFinder.findAllChests()
+Chest.AutoChestOpener.enable(15)
 ```
 
 #### Auto-Interact Everything
 ```lua
-local InteractExploit = loadstring(game:HttpGet("url/islands-interact-exploiter.lua"))()
-InteractExploit.AutoInteract.enable()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-loader.lua"))()
+local Interact = Islands.interact()
+Interact.AutoInteract.enable()
 ```
 
-#### Item Duplication
+#### Item Duplication Analysis
 ```lua
-local ItemDuper = loadstring(game:HttpGet("url/islands-item-duper.lua"))()
-ItemDuper.RaceConditionDuper.enable()
--- Place item in specific slot and let it work
+loadstring(game:HttpGet("https://raw.githubusercontent.com/dripnodrizzle/oaklands/copilot/finish-inspector-lua-script/islands/islands-loader.lua"))()
+Islands.presets.analysis()
+
+-- Use duper to analyze item requests
+local Duper = Islands.loaded.duper
+Duper.ItemScanner.scanInventory()
+Duper.NetworkInterceptor.dumpItemRequests(10)
 ```
 
 ## 🔍 Key Discoveries
