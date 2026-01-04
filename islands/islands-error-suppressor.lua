@@ -265,6 +265,140 @@ function TimeoutBypass.removeTimeouts()
 end
 
 -- =====================================================
+-- VENDING MACHINE ERROR FIX
+-- =====================================================
+
+local VendingMachineFixes = {}
+VendingMachineFixes.fixedCount = 0
+VendingMachineFixes.preventedErrors = 0
+
+function VendingMachineFixes.fixVendingMachineNilErrors()
+    local Player = game.Players.LocalPlayer
+    
+    -- Wait for the vending machine service to load
+    task.spawn(function()
+        local success = pcall(function()
+            local PlayerScripts = Player:WaitForChild("PlayerScripts", 10)
+            if not PlayerScripts then
+                warn("⚠️ PlayerScripts not found")
+                return
+            end
+            
+            -- Navigate to the vending machine service
+            local tsPath = PlayerScripts:FindFirstChild("TS")
+            if not tsPath then
+                warn("⚠️ TS folder not found")
+                return
+            end
+            
+            local blockPath = tsPath:FindFirstChild("block")
+            if not blockPath then
+                warn("⚠️ block folder not found")
+                return
+            end
+            
+            local vendingPath = blockPath:FindFirstChild("vending-machine")
+            if not vendingPath then
+                warn("⚠️ vending-machine folder not found")
+                return
+            end
+            
+            local clientService = vendingPath:FindFirstChild("client-vending-machine-ui-service")
+            if not clientService or not clientService:IsA("ModuleScript") then
+                warn("⚠️ client-vending-machine-ui-service not found")
+                return
+            end
+            
+            print("✓ Found vending machine service, applying fix...")
+            
+            -- Hook the module by wrapping require
+            local oldRequire = require
+            local moduleCache = {}
+            
+            getgenv().require = function(module)
+                -- Check if this is the vending machine service
+                if module == clientService and not moduleCache[clientService] then
+                    local originalModule = oldRequire(module)
+                    
+                    -- Try to hook the setupViewport function if accessible
+                    if type(originalModule) == "table" then
+                        for key, value in pairs(originalModule) do
+                            if type(value) == "function" and (key == "setupViewport" or key == "setupTopViewport") then
+                                local originalFunc = value
+                                originalModule[key] = function(...)
+                                    local args = {...}
+                                    
+                                    -- Wrap in pcall to catch nil errors
+                                    local success, result = pcall(function()
+                                        -- Check if first argument has inventoryRenderBlockModel before calling
+                                        if args[1] and type(args[1]) == "table" then
+                                            if not args[1].inventoryRenderBlockModel then
+                                                VendingMachineFixes.preventedErrors = VendingMachineFixes.preventedErrors + 1
+                                                warn("⚠️ Prevented nil inventoryRenderBlockModel access")
+                                                return nil -- Return nil instead of crashing
+                                            end
+                                        end
+                                        
+                                        return originalFunc(...)
+                                    end)
+                                    
+                                    if success then
+                                        return result
+                                    else
+                                        VendingMachineFixes.preventedErrors = VendingMachineFixes.preventedErrors + 1
+                                        warn("⚠️ Caught vending machine error: " .. tostring(result))
+                                        return nil
+                                    end
+                                end
+                                
+                                VendingMachineFixes.fixedCount = VendingMachineFixes.fixedCount + 1
+                                print("✓ Hooked " .. key .. " function")
+                            end
+                        end
+                    end
+                    
+                    moduleCache[clientService] = originalModule
+                    return originalModule
+                end
+                
+                return oldRequire(module)
+            end
+            
+            print("✓ Vending machine fix applied (module hooking enabled)")
+        end)
+        
+        if not success then
+            warn("⚠️ Failed to apply vending machine fix")
+        end
+    end)
+    
+    -- Also add a global error handler as backup
+    task.spawn(function()
+        while true do
+            task.wait(0.1)
+            
+            -- Hook into any vending machine related errors via pcall wrapper
+            local oldPcall = pcall
+            getgenv().pcall = function(func, ...)
+                local success, result = oldPcall(func, ...)
+                
+                if not success and type(result) == "string" then
+                    if string.find(result, "inventoryRenderBlockModel") then
+                        VendingMachineFixes.preventedErrors = VendingMachineFixes.preventedErrors + 1
+                        warn("⚠️ Intercepted vending machine error")
+                        return true, nil -- Pretend it succeeded
+                    end
+                end
+                
+                return success, result
+            end
+            
+            break -- Only set once
+        end
+    end)
+end
+
+-- =====================================================
 -- INTERACT SPECIFIC FIXES
 -- =====================================================
 
@@ -298,6 +432,7 @@ print("\n=== Islands Error Suppressor ===")
 -- Suppress annoying errors
 RoactSuppressor.suppressWarnings()
 MemorySuppressor.suppressMemoryWarnings()
+VendingMachineFixes.fixVendingMachineNilErrors()
 
 -- Monitor promises
 local promiseConnection = PromiseInterceptor.hookPromiseRejections()
@@ -316,6 +451,8 @@ print("  RemoteLogger.dumpLogs(10) - Show last 10 remote calls")
 print("  RemoteRevealer.dumpObfuscatedRemotes() - List obfuscated remotes")
 print("  PromiseInterceptor.dumpTimeouts() - Show timed out remotes")
 print(string.format("\n✓ Suppressed %d Roact warnings", RoactSuppressor.suppressedCount))
+print(string.format("✓ Applied %d vending machine hooks", VendingMachineFixes.fixedCount))
+print(string.format("✓ Prevented %d vending machine errors", VendingMachineFixes.preventedErrors))
 
 return {
     RoactSuppressor = RoactSuppressor,
@@ -324,5 +461,6 @@ return {
     RemoteRevealer = RemoteRevealer,
     RemoteLogger = RemoteLogger,
     TimeoutBypass = TimeoutBypass,
-    InteractFixes = InteractFixes
+    InteractFixes = InteractFixes,
+    VendingMachineFixes = VendingMachineFixes
 }
