@@ -199,25 +199,28 @@ local Islands = {
     loaded = LoadedScripts
 }
 
--- Add individual loaders with safety checks
-for key, script in pairs(SCRIPTS) do
-    Islands[key] = function()
-        local result = loadScript(key)
-        if result == nil then
-            warn(string.format("Failed to load %s - check errors above", script.name))
-        elseif result == true then
-            warn(string.format("%s loaded but returned no functions", script.name))
-            warn("The script may be designed to run automatically")
+-- Create a metatable that auto-loads scripts when accessed
+local IslandsMetatable = {}
+IslandsMetatable.__index = function(table, key)
+    -- Check if it's a known script
+    if SCRIPTS[key] then
+        -- Auto-load if not already loaded
+        if not LoadedScripts[key] then
+            print(string.format("🔄 Auto-loading %s...", SCRIPTS[key].name))
+            loadScript(key)
         end
-        return result
+        return LoadedScripts[key]
     end
+    
+    -- Check if it's a built-in function
+    return rawget(Islands, key)
 end
 
--- Helper to safely access loaded scripts
+-- Helper to safely access loaded scripts (deprecated, use direct access)
 function Islands.get(key)
     if not LoadedScripts[key] then
-        warn(string.format("Script '%s' not loaded. Load it first with Islands.%s()", key, key))
-        return nil
+        warn(string.format("Script '%s' not loaded. Loading now...", key))
+        return loadScript(key)
     end
     return LoadedScripts[key]
 end
@@ -226,6 +229,14 @@ end
 function Islands.isLoaded(key)
     return LoadedScripts[key] ~= nil
 end
+
+-- Manual loading function (optional, for explicit control)
+function Islands.loadScript(key)
+    return loadScript(key)
+end
+
+-- Apply metatable for auto-loading
+setmetatable(Islands, IslandsMetatable)
 
 -- =====================================================
 -- DISPLAY MENU
@@ -262,17 +273,16 @@ print("   Islands.chest()              - Load chest exploiter")
 print("   Islands.load('spy')          - Load remote spy")
 print("   Islands.presets.full()       - Load all scripts")
 
-print("\n📦 Individual Script Usage:")
-print("   After loading, each script returns its functions:")
-print("   local Chest = Islands.chest()")
-print("   if Chest then")
-print("       Chest.AutoChestOpener.enable(15)")
-print("   end")
+print("\n📦 Individual Script Usage (AUTO-LOAD):")
+print("   Scripts load automatically when accessed:")
+print("   Islands.chest.AutoChestOpener.enable(15)")
+print("   Islands.duper.ItemScanner.scanInventory()")
+print("   Islands.spy.TrafficInterceptor.dumpTraffic()")
 
 print("\n🔧 Helper Functions:")
-print("   Islands.get('chest')     - Get loaded script safely")
-print("   Islands.isLoaded('spy')  - Check if script is loaded")
-print("   Islands.loaded           - View all loaded scripts")
+print("   Islands.loadScript('chest')  - Manually load a script")
+print("   Islands.isLoaded('spy')      - Check if script is loaded")
+print("   Islands.loaded               - View all loaded scripts")
 
 print("\n" .. string.rep("=", 52))
 print("Ready! Type a command to get started")
