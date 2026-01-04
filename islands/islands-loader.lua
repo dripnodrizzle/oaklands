@@ -199,23 +199,6 @@ local Islands = {
     loaded = LoadedScripts
 }
 
--- Create a metatable that auto-loads scripts when accessed
-local IslandsMetatable = {}
-IslandsMetatable.__index = function(table, key)
-    -- Check if it's a known script
-    if SCRIPTS[key] then
-        -- Auto-load if not already loaded
-        if not LoadedScripts[key] then
-            print(string.format("🔄 Auto-loading %s...", SCRIPTS[key].name))
-            loadScript(key)
-        end
-        return LoadedScripts[key]
-    end
-    
-    -- Check if it's a built-in function
-    return rawget(Islands, key)
-end
-
 -- Helper to safely access loaded scripts (deprecated, use direct access)
 function Islands.get(key)
     if not LoadedScripts[key] then
@@ -233,6 +216,29 @@ end
 -- Manual loading function (optional, for explicit control)
 function Islands.loadScript(key)
     return loadScript(key)
+end
+
+-- Create a metatable that auto-loads scripts when accessed
+local IslandsMetatable = {}
+IslandsMetatable.__index = function(t, key)
+    -- First check if it's a built-in property/function
+    local builtin = rawget(Islands, key)
+    if builtin ~= nil then
+        return builtin
+    end
+    
+    -- Check if it's a script that can be auto-loaded
+    if SCRIPTS[key] then
+        -- Auto-load if not already loaded
+        if not LoadedScripts[key] then
+            print(string.format("🔄 Auto-loading %s...", SCRIPTS[key].name))
+            loadScript(key)
+        end
+        return LoadedScripts[key]
+    end
+    
+    -- Nothing found
+    return nil
 end
 
 -- Apply metatable for auto-loading
