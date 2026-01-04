@@ -654,8 +654,6 @@ end
 function RemoteScanner.hookAllRemotes()
     print("\n🔗 Hooking ALL RemoteEvents...")
     
-    local hooked = 0
-    
     -- Global hook for ALL FireServer calls
     local success = pcall(function()
         local mt = getrawmetatable(game)
@@ -664,37 +662,50 @@ function RemoteScanner.hookAllRemotes()
         
         mt.__namecall = newcclosure(function(self, ...)
             local method = getnamecallmethod()
+            local args = {...}
             
+            -- Only log, don't interfere with the call
             if method == "FireServer" and self:IsA("RemoteEvent") then
-                local args = {...}
-                
-                print(string.format("\n🔥 RemoteEvent: %s", self:GetFullName()))
-                for i, arg in ipairs(args) do
-                    if type(arg) == "table" then
-                        print(string.format("  [%d] table", i))
-                        local count = 0
-                        for k, v in pairs(arg) do
-                            if count < 5 then -- Limit output
-                                print(string.format("    %s = %s", tostring(k), tostring(v)))
+                task.spawn(function()
+                    pcall(function()
+                        local remoteName = self.Name
+                        
+                        -- Only log if it looks interesting (avoid spam)
+                        if remoteName:lower():match("purchase") or 
+                           remoteName:lower():match("buy") or
+                           remoteName:lower():match("shop") then
+                            
+                            print(string.format("\n🔥 RemoteEvent: %s", self:GetFullName()))
+                            for i, arg in ipairs(args) do
+                                if type(arg) == "table" then
+                                    print(string.format("  [%d] table", i))
+                                    local count = 0
+                                    for k, v in pairs(arg) do
+                                        if count < 5 then
+                                            print(string.format("    %s = %s", tostring(k), tostring(v)))
+                                        end
+                                        count = count + 1
+                                    end
+                                    if count > 5 then
+                                        print(string.format("    ... (%d more)", count - 5))
+                                    end
+                                else
+                                    print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
+                                end
                             end
-                            count = count + 1
                         end
-                        if count > 5 then
-                            print(string.format("    ... (%d more)", count - 5))
-                        end
-                    else
-                        print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
-                    end
-                end
-                
-                -- Store for analysis
-                table.insert(RemoteScanner.remoteTraffic, {
-                    remote = self:GetFullName(),
-                    args = args,
-                    timestamp = tick()
-                })
+                        
+                        -- Store for analysis
+                        table.insert(RemoteScanner.remoteTraffic, {
+                            remote = self:GetFullName(),
+                            args = args,
+                            timestamp = tick()
+                        })
+                    end)
+                end)
             end
             
+            -- ALWAYS call original, don't interfere
             return oldNamecall(self, ...)
         end)
         
@@ -702,8 +713,8 @@ function RemoteScanner.hookAllRemotes()
     end)
     
     if success then
-        print("✓ Global RemoteEvent hook applied")
-        print("💡 ALL RemoteEvent:FireServer() calls will be logged")
+        print("✓ Global RemoteEvent hook applied (purchase remotes only)")
+        print("💡 Purchase-related RemoteEvent:FireServer() calls will be logged")
     else
         warn("❌ Global hook failed - executor may not support metamethod hooking")
     end
