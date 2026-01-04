@@ -198,11 +198,26 @@ function NetworkInterceptor.hookNetworkRequests()
             NetworkService.sendClientRequest = function(self, requestId, data)
                 -- Debug: Log raw data type and keys
                 pcall(function()
-                    print(string.format("\n📡 Raw Request: ID=%s, DataType=%s", tostring(requestId), type(data)))
                     if type(data) == "table" then
-                        print("Raw data keys:")
+                        local hasData = false
                         for k, v in pairs(data) do
-                            print(string.format("  %s = %s (type: %s)", tostring(k), tostring(v), type(v)))
+                            hasData = true
+                            break
+                        end
+                        
+                        if hasData then
+                            print(string.format("\n📡 Raw Request: ID=%s, DataType=%s", tostring(requestId), type(data)))
+                            print("Raw data keys:")
+                            for k, v in pairs(data) do
+                                print(string.format("  %s = %s (type: %s)", tostring(k), tostring(v), type(v)))
+                                
+                                -- If it's a table, show its keys too
+                                if type(v) == "table" then
+                                    for k2, v2 in pairs(v) do
+                                        print(string.format("    %s = %s (type: %s)", tostring(k2), tostring(v2), type(v2)))
+                                    end
+                                end
+                            end
                         end
                     end
                 end)

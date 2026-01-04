@@ -1,4 +1,5 @@
--- Islands Error Suppressor & Remote Revealer
+
+ -- Islands Error Suppressor & Remote Revealer
 -- Suppress annoying errors and reveal hidden RemoteEvents
 
 print("Islands Error Suppressor Loading...")
