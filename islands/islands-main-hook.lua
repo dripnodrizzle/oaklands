@@ -65,10 +65,10 @@ function FlameworkInterceptor.hookFlamework()
     pcall(function()
         local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
         
-        -- Find the main script
+        -- Find the main script (optional)
         local mainScript = Player:WaitForChild("main", 5)
         if not mainScript then
-            warn("Main script not found")
+            -- Not an error - game might use different structure
             return
         end
         
