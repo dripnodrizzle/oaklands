@@ -88,25 +88,43 @@ local function loadScript(key)
     print(string.format("📥 Loading: %s...", script.name))
     print(string.format("   %s", script.description))
     
-    local success, result = pcall(function()
-        local code = game:HttpGet(url)
-        local func = loadstring(code)
-        if not func then
-            error("Failed to compile script")
-        end
-        return func()
+    local httpSuccess, code = pcall(function()
+        return game:HttpGet(url)
     end)
     
-    if success then
-        print(string.format("✅ %s loaded successfully", script.name))
-        LoadedScripts[key] = result or true  -- Store true if script returns nothing
-        return result
-    else
-        warn(string.format("❌ Failed to load %s", script.name))
-        warn(string.format("   Error: %s", tostring(result)))
+    if not httpSuccess then
+        warn(string.format("❌ Failed to fetch %s", script.name))
+        warn(string.format("   HTTP Error: %s", tostring(code)))
         warn(string.format("   URL: %s", url))
         return nil
     end
+    
+    local compileSuccess, func = pcall(function()
+        return loadstring(code)
+    end)
+    
+    if not compileSuccess or not func then
+        warn(string.format("❌ Failed to compile %s", script.name))
+        warn(string.format("   Compile Error: %s", tostring(func)))
+        return nil
+    end
+    
+    local executeSuccess, result = pcall(func)
+    
+    if not executeSuccess then
+        warn(string.format("❌ Failed to execute %s", script.name))
+        warn(string.format("   Runtime Error: %s", tostring(result)))
+        return nil
+    end
+    
+    print(string.format("✅ %s loaded successfully", script.name))
+    LoadedScripts[key] = result or true
+    
+    if not result then
+        print("   ⚠️ Script returned nothing (this may be intentional)")
+    end
+    
+    return result
 end
 
 -- =====================================================
