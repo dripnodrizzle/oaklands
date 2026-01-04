@@ -652,72 +652,89 @@ function RemoteScanner.scanAllRemotes()
 end
 
 function RemoteScanner.hookAllRemotes()
-    print("\n🔗 Hooking ALL RemoteEvents...")
+    print("\n🔗 Remote hooking disabled to prevent breaking game")
+    print("💡 Use testPurchaseExploit() instead")
+end
+
+function RemoteScanner.testPurchaseExploit()
+    print("\n💰 Testing Purchase Exploit...")
     
-    -- Global hook for ALL FireServer calls
-    local success = pcall(function()
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        local oldNamecall = mt.__namecall
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            local args = {...}
-            
-            -- Only log, don't interfere with the call
-            if method == "FireServer" and self:IsA("RemoteEvent") then
-                task.spawn(function()
-                    pcall(function()
-                        local remoteName = self.Name
-                        
-                        -- Only log if it looks interesting (avoid spam)
-                        if remoteName:lower():match("purchase") or 
-                           remoteName:lower():match("buy") or
-                           remoteName:lower():match("shop") then
-                            
-                            print(string.format("\n🔥 RemoteEvent: %s", self:GetFullName()))
-                            for i, arg in ipairs(args) do
-                                if type(arg) == "table" then
-                                    print(string.format("  [%d] table", i))
-                                    local count = 0
-                                    for k, v in pairs(arg) do
-                                        if count < 5 then
-                                            print(string.format("    %s = %s", tostring(k), tostring(v)))
-                                        end
-                                        count = count + 1
-                                    end
-                                    if count > 5 then
-                                        print(string.format("    ... (%d more)", count - 5))
-                                    end
-                                else
-                                    print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
-                                end
-                            end
-                        end
-                        
-                        -- Store for analysis
-                        table.insert(RemoteScanner.remoteTraffic, {
-                            remote = self:GetFullName(),
-                            args = args,
-                            timestamp = tick()
-                        })
-                    end)
-                end)
-            end
-            
-            -- ALWAYS call original, don't interfere
-            return oldNamecall(self, ...)
-        end)
-        
-        setreadonly(mt, true)
+    local purchaseRemote = game:GetService("RobloxReplicatedStorage"):FindFirstChild("ServerSideBulkPurchaseEvent")
+    
+    if not purchaseRemote then
+        warn("❌ Purchase remote not found!")
+        return
+    end
+    
+    print("✓ Found:", purchaseRemote:GetFullName())
+    print("\n📝 Testing different purchase payloads...")
+    
+    -- Test 1: Empty purchase
+    print("\n[Test 1] Sending empty purchase...")
+    pcall(function()
+        purchaseRemote:FireServer({})
+        print("✓ Sent empty table")
     end)
     
-    if success then
-        print("✓ Global RemoteEvent hook applied (purchase remotes only)")
-        print("💡 Purchase-related RemoteEvent:FireServer() calls will be logged")
-    else
-        warn("❌ Global hook failed - executor may not support metamethod hooking")
+    task.wait(1)
+    
+    -- Test 2: Negative amount
+    print("\n[Test 2] Sending negative amount purchase...")
+    pcall(function()
+        purchaseRemote:FireServer({
+            amount = -1,
+            itemId = 1
+        })
+        print("✓ Sent negative amount")
+    end)
+    
+    task.wait(1)
+    
+    -- Test 3: Zero price
+    print("\n[Test 3] Sending zero price purchase...")
+    pcall(function()
+        purchaseRemote:FireServer({
+            amount = 1,
+            price = 0,
+            itemId = 1
+        })
+        print("✓ Sent zero price")
+    end)
+    
+    task.wait(1)
+    
+    -- Test 4: Massive amount
+    print("\n[Test 4] Sending huge amount...")
+    pcall(function()
+        purchaseRemote:FireServer({
+            amount = 999999,
+            itemId = 1
+        })
+        print("✓ Sent huge amount")
+    end)
+    
+    print("\n💡 Check your coins and inventory!")
+    print("If any test worked, you'll see changes")
+end
+
+function RemoteScanner.manualPurchaseCall(data)
+    print("\n💰 Manually calling purchase remote...")
+    
+    local purchaseRemote = game:GetService("RobloxReplicatedStorage"):FindFirstChild("ServerSideBulkPurchaseEvent")
+    
+    if not purchaseRemote then
+        warn("❌ Purchase remote not found!")
+        return
     end
+    
+    print("Sending:", game:GetService("HttpService"):JSONEncode(data))
+    
+    pcall(function()
+        purchaseRemote:FireServer(data)
+        print("✓ Sent!")
+    end)
+    
+    print("💡 Check if it worked!")
 end
 
 function RemoteScanner.showRecentTraffic(count)
@@ -1096,12 +1113,8 @@ print("\n=== Available Commands ===")
 print("\n📊 Analysis:")
 print("  ItemScanner.scanInventory() - Scan current items")
 print("  NetworkInterceptor.analyzeRequestTypes() - Show all RequestIds captured")
-print("  NetworkInterceptor.showRequestId(ID, count) - Show specific RequestId details")
-print("  NetworkInterceptor.dumpItemRequests(10) - Show recent item requests")
-print("  RemoteScanner.scanAllRemotes() - Find ALL RemoteEvents/Functions")
-print("  RemoteScanner.hookAllRemotes() - Hook and monitor ALL remotes")
-print("  RemoteScanner.hookPurchaseRemote() - Hook ServerSideBulkPurchaseEvent")
-print("  RemoteScanner.showRecentTraffic(10) - Show recent remote calls")
+print("  RemoteScanner.testPurchaseExploit() - Test purchase manipulation")
+print("  RemoteScanner.manualPurchaseCall({data}) - Manually call purchase remote")
 
 print("\n⚡ Race Condition Exploits:")
 print("  RaceConditionExploiter.rapidHotbarSwap() - Rapid slot changes")
