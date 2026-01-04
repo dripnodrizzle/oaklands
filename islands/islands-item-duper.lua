@@ -656,39 +656,57 @@ function RemoteScanner.hookAllRemotes()
     
     local hooked = 0
     
-    for _, descendant in ipairs(game:GetDescendants()) do
-        if descendant:IsA("RemoteEvent") then
-            pcall(function()
-                if not RemoteScanner.hookedRemotes[descendant] then
-                    local oldFire = descendant.FireServer
-                    if oldFire then
-                        descendant.FireServer = function(self, ...)
-                            local args = {...}
-                            
-                            -- Log all traffic
-                            table.insert(RemoteScanner.remoteTraffic, {
-                                remote = descendant:GetFullName(),
-                                args = args,
-                                timestamp = tick()
-                            })
-                            
-                            print(string.format("🔥 RemoteEvent: %s", descendant.Name))
-                            for i, arg in ipairs(args) do
-                                print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
+    -- Global hook for ALL FireServer calls
+    local success = pcall(function()
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
+        local oldNamecall = mt.__namecall
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            
+            if method == "FireServer" and self:IsA("RemoteEvent") then
+                local args = {...}
+                
+                print(string.format("\n🔥 RemoteEvent: %s", self:GetFullName()))
+                for i, arg in ipairs(args) do
+                    if type(arg) == "table" then
+                        print(string.format("  [%d] table", i))
+                        local count = 0
+                        for k, v in pairs(arg) do
+                            if count < 5 then -- Limit output
+                                print(string.format("    %s = %s", tostring(k), tostring(v)))
                             end
-                            
-                            return oldFire(self, ...)
+                            count = count + 1
                         end
-                        
-                        RemoteScanner.hookedRemotes[descendant] = true
-                        hooked = hooked + 1
+                        if count > 5 then
+                            print(string.format("    ... (%d more)", count - 5))
+                        end
+                    else
+                        print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
                     end
                 end
-            end)
-        end
-    end
+                
+                -- Store for analysis
+                table.insert(RemoteScanner.remoteTraffic, {
+                    remote = self:GetFullName(),
+                    args = args,
+                    timestamp = tick()
+                })
+            end
+            
+            return oldNamecall(self, ...)
+        end)
+        
+        setreadonly(mt, true)
+    end)
     
-    print(string.format("✓ Hooked %d RemoteEvents", hooked))
+    if success then
+        print("✓ Global RemoteEvent hook applied")
+        print("💡 ALL RemoteEvent:FireServer() calls will be logged")
+    else
+        warn("❌ Global hook failed - executor may not support metamethod hooking")
+    end
 end
 
 function RemoteScanner.showRecentTraffic(count)
