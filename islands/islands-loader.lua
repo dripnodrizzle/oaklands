@@ -199,11 +199,32 @@ local Islands = {
     loaded = LoadedScripts
 }
 
--- Add individual loaders
+-- Add individual loaders with safety checks
 for key, script in pairs(SCRIPTS) do
     Islands[key] = function()
-        return loadScript(key)
+        local result = loadScript(key)
+        if result == nil then
+            warn(string.format("Failed to load %s - check errors above", script.name))
+        elseif result == true then
+            warn(string.format("%s loaded but returned no functions", script.name))
+            warn("The script may be designed to run automatically")
+        end
+        return result
     end
+end
+
+-- Helper to safely access loaded scripts
+function Islands.get(key)
+    if not LoadedScripts[key] then
+        warn(string.format("Script '%s' not loaded. Load it first with Islands.%s()", key, key))
+        return nil
+    end
+    return LoadedScripts[key]
+end
+
+-- Helper to check if a script is loaded
+function Islands.isLoaded(key)
+    return LoadedScripts[key] ~= nil
 end
 
 -- =====================================================
@@ -244,7 +265,14 @@ print("   Islands.presets.full()       - Load all scripts")
 print("\n📦 Individual Script Usage:")
 print("   After loading, each script returns its functions:")
 print("   local Chest = Islands.chest()")
-print("   Chest.AutoChestOpener.enable(15)")
+print("   if Chest then")
+print("       Chest.AutoChestOpener.enable(15)")
+print("   end")
+
+print("\n🔧 Helper Functions:")
+print("   Islands.get('chest')     - Get loaded script safely")
+print("   Islands.isLoaded('spy')  - Check if script is loaded")
+print("   Islands.loaded           - View all loaded scripts")
 
 print("\n" .. string.rep("=", 52))
 print("Ready! Type a command to get started")
