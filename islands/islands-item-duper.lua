@@ -345,6 +345,87 @@ function NetworkInterceptor.dumpItemRequests(count)
     end
 end
 
+-- Analyze all captured RequestIds
+function NetworkInterceptor.analyzeRequestTypes()
+    print(string.format("\n=== RequestId Analysis (%d total requests) ===", #NetworkInterceptor.requests))
+    
+    local idCounts = {}
+    local idExamples = {}
+    
+    for _, req in ipairs(NetworkInterceptor.requests) do
+        local id = tostring(req.requestId)
+        idCounts[id] = (idCounts[id] or 0) + 1
+        
+        if not idExamples[id] and req.data and type(req.data) == "table" then
+            idExamples[id] = req
+        end
+    end
+    
+    local sortedIds = {}
+    for id, count in pairs(idCounts) do
+        table.insert(sortedIds, {id = id, count = count})
+    end
+    table.sort(sortedIds, function(a, b) return a.count > b.count end)
+    
+    print("\nRequestId frequencies:")
+    for _, entry in ipairs(sortedIds) do
+        print(string.format("\n  RequestId %s: %d times", entry.id, entry.count))
+        
+        local example = idExamples[entry.id]
+        if example and example.data then
+            local keys = {}
+            for k, _ in pairs(example.data) do
+                table.insert(keys, tostring(k))
+            end
+            if #keys > 0 then
+                print("    Keys: " .. table.concat(keys, ", "))
+            end
+        end
+    end
+    
+    print("\n💡 Use showRequestId(ID, count) to see specific requests")
+end
+
+-- Show details of specific RequestId
+function NetworkInterceptor.showRequestId(requestId, count)
+    count = count or 5
+    print(string.format("\n=== Recent RequestId %s ===", tostring(requestId)))
+    
+    local found = {}
+    for i = #NetworkInterceptor.requests, 1, -1 do
+        local req = NetworkInterceptor.requests[i]
+        if tostring(req.requestId) == tostring(requestId) then
+            table.insert(found, req)
+            if #found >= count then
+                break
+            end
+        end
+    end
+    
+    if #found == 0 then
+        print("No requests found")
+        return
+    end
+    
+    for i, req in ipairs(found) do
+        print(string.format("\n[%d] %.1fs ago", i, tick() - req.timestamp))
+        
+        if req.data and type(req.data) == "table" then
+            for key, value in pairs(req.data) do
+                if type(value) == "table" then
+                    local subKeys = {}
+                    for k, _ in pairs(value) do
+                        table.insert(subKeys, tostring(k))
+                    end
+                    print(string.format("  %s = {%s}", key, table.concat(subKeys, ", ")))
+                else
+                    print(string.format("  %s = %s", key, tostring(value)))
+                end
+            end
+        end
+    end
+end
+
 -- =====================================================
 -- RACE CONDITION DUPER
 -- =====================================================
@@ -578,6 +659,8 @@ RequestIdFinder.findItemRequestIds()
 print("\n=== Available Commands ===")
 print("\n📊 Analysis:")
 print("  ItemScanner.scanInventory() - Scan current items")
+print("  NetworkInterceptor.analyzeRequestTypes() - Show all RequestIds captured")
+print("  NetworkInterceptor.showRequestId(ID, count) - Show specific RequestId details")
 print("  NetworkInterceptor.dumpItemRequests(10) - Show recent item requests")
 print("  StorageTransferDuper.findStorageRemotes() - Find storage remotes")
 print("  RequestIdFinder.findItemRequestIds() - Find item request IDs")
