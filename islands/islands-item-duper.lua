@@ -154,34 +154,32 @@ function NetworkInterceptor.hookNetworkRequests()
             local originalSendRequest = NetworkService.sendClientRequest
             
             NetworkService.sendClientRequest = function(self, requestId, data)
-                -- Safely serialize the data
-                local serializedData = safeSerialize(data)
-                
-                -- Log all requests
+                -- Safely serialize the data first
+                local serializedData = nil
                 pcall(function()
-                    print(string.format("📡 Request: %s", tostring(requestId)))
+                    serializedData = safeSerialize(data)
                 end)
                 
-                table.insert(NetworkInterceptor.requests, {
-                    requestId = requestId,
-                    data = serializedData,
-                    timestamp = tick()
-                })
-                
-                -- Check if it's item-related
-                if data and type(data) == "table" and (data.item or data.itemId or data.slot or data.amount) then
-                    pcall(function()
-                        print("  📦 Item-related request detected!")
-                        local jsonData = game:GetService("HttpService"):JSONEncode(serializedData)
-                        print(string.format("  Data: %s", jsonData))
-                    end)
-                    
-                    table.insert(NetworkInterceptor.itemRequests, {
+                -- Store request
+                pcall(function()
+                    table.insert(NetworkInterceptor.requests, {
                         requestId = requestId,
                         data = serializedData,
                         timestamp = tick()
                     })
-                end
+                end)
+                
+                -- Check if it's item-related and store it
+                pcall(function()
+                    if data and type(data) == "table" and (data.item or data.itemId or data.slot or data.amount) then
+                        table.insert(NetworkInterceptor.itemRequests, {
+                            requestId = requestId,
+                            data = serializedData,
+                            timestamp = tick()
+                        })
+                        print("  📦 Item-related request detected!")
+                    end
+                end)
                 
                 return originalSendRequest(self, requestId, data)
             end
@@ -199,9 +197,22 @@ function NetworkInterceptor.dumpItemRequests(count)
     local start = math.max(1, #NetworkInterceptor.itemRequests - count + 1)
     for i = start, #NetworkInterceptor.itemRequests do
         local req = NetworkInterceptor.itemRequests[i]
-        print(string.format("[%d] %s (%.1fs ago)", 
-            i, tostring(req.requestId), tick() - req.timestamp))
-        print(string.format("  Data: %s", game:GetService("HttpService"):JSONEncode(req.data)))
+        pcall(function()
+            print(string.format("[%d] %s (%.1fs ago)", 
+                i, tostring(req.requestId), tick() - req.timestamp))
+            
+            if req.data then
+                local success, jsonData = pcall(function()
+                    return game:GetService("HttpService"):JSONEncode(req.data)
+                end)
+                
+                if success then
+                    print(string.format("  Data: %s", jsonData))
+                else
+                    print(string.format("  Data: %s", tostring(req.data)))
+                end
+            end
+        end)
     end
 end
 
