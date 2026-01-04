@@ -48,10 +48,21 @@ local MemorySuppressor = {}
 MemorySuppressor.suppressedCount = 0
 
 function MemorySuppressor.suppressMemoryWarnings()
-    -- Hook warn function directly using multiple methods
+    -- Method 1: Hook LogService MessageOut
+    pcall(function()
+        LogService.MessageOut:Connect(function(message, messageType)
+            if string.find(message, "Memory tracking is currently disabled") or
+               string.find(message, "MemoryTrackingEnabled") then
+                MemorySuppressor.suppressedCount = MemorySuppressor.suppressedCount + 1
+                return true -- Consume the message
+            end
+        end)
+        print("✓ Hooked LogService.MessageOut")
+    end)
+    
+    -- Method 2: Hook warn function using multiple methods
     local oldWarn = warn
     
-    -- Method 1: Global override
     local function newWarn(...)
         local args = {...}
         local success, message = pcall(function()
@@ -75,20 +86,15 @@ function MemorySuppressor.suppressMemoryWarnings()
     getgenv().warn = newWarn
     _G.warn = newWarn
     
-    -- Also try rawset
-    pcall(function()
-        rawset(getfenv(), "warn", newWarn)
-    end)
-    
-    -- Try to enable memory tracking
+    -- Method 3: Disable the actual warning at the source
     pcall(function()
         if Stats.MemoryTrackingEnabled ~= nil then
             Stats.MemoryTrackingEnabled = true
-            print("✓ Enabled memory tracking")
+            print("✓ Enabled Stats.MemoryTrackingEnabled")
         end
     end)
     
-    print("✓ Hooked warn() to suppress memory warnings (multi-method)")
+    print("✓ Memory warning suppression enabled (multi-method)")
 end
 
 -- =====================================================
