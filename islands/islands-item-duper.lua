@@ -18,13 +18,14 @@ InventoryFinder.inventoryService = nil
 InventoryFinder.inventoryUI = nil
 
 function InventoryFinder.findInventory()
+    print("🔍 Searching for inventory system...")
+    
     pcall(function()
         local RuntimeLib = require(ReplicatedStorage.rbxts_include.RuntimeLib)
         
-        -- Find inventory service
+        -- Find inventory service with timeout
         local paths = {
             "TS/inventory/inventory-service",
-            "TS/inventory/client-inventory-service",
             "TS/ui/inventory/client-inventory-ui-service"
         }
         
@@ -35,9 +36,19 @@ function InventoryFinder.findInventory()
                     table.insert(segments, segment)
                 end
                 
-                local module = RuntimeLib.import(nil, ReplicatedStorage, unpack(segments))
-                if module then
-                    print(string.format("✓ Found module at: %s", path))
+                -- Try with short timeout to avoid hanging
+                local success, module = pcall(function()
+                    -- Use FindFirstChild instead of WaitForChild to avoid infinite yield
+                    local current = ReplicatedStorage
+                    for _, seg in ipairs(segments) do
+                        current = current:FindFirstChild(seg)
+                        if not current then return nil end
+                    end
+                    return require(current)
+                end)
+                
+                if success and module then
+                    print(string.format("✓ Found inventory module: %s", path))
                     
                     if path:match("client-inventory-ui-service") then
                         InventoryFinder.inventoryUI = module.ClientInventoryUIService
@@ -48,6 +59,11 @@ function InventoryFinder.findInventory()
             end)
         end
     end)
+    
+    if not InventoryFinder.inventoryService then
+        warn("⚠️ Could not find inventory service - some features may not work")
+        warn("   This is normal if Islands uses a different structure")
+    end
 end
 
 -- =====================================================
