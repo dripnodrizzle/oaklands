@@ -196,7 +196,18 @@ function NetworkInterceptor.hookNetworkRequests()
             local originalSendRequest = NetworkService.sendClientRequest
             
             NetworkService.sendClientRequest = function(self, requestId, data)
-                -- Safely serialize the data first
+                -- Debug: Log raw data type and keys
+                pcall(function()
+                    print(string.format("\n📡 Raw Request: ID=%s, DataType=%s", tostring(requestId), type(data)))
+                    if type(data) == "table" then
+                        print("Raw data keys:")
+                        for k, v in pairs(data) do
+                            print(string.format("  %s = %s (type: %s)", tostring(k), tostring(v), type(v)))
+                        end
+                    end
+                end)
+                
+                -- Safely serialize the data
                 local serializedData = nil
                 pcall(function()
                     serializedData = safeSerialize(data)
@@ -206,7 +217,7 @@ function NetworkInterceptor.hookNetworkRequests()
                 pcall(function()
                     table.insert(NetworkInterceptor.requests, {
                         requestId = requestId,
-                        data = serializedData,
+                        data = data,  -- Store ORIGINAL data, not serialized
                         timestamp = tick()
                     })
                 end)
