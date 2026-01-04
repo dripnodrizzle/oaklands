@@ -716,35 +716,51 @@ function RemoteScanner.hookPurchaseRemote()
     end
     
     print("✓ Found:", purchaseRemote:GetFullName())
+    print("Type:", purchaseRemote.ClassName)
     
-    local oldFire = purchaseRemote.FireServer
+    -- Hook using metamethods for RemoteEvent
+    local mt = getrawmetatable(purchaseRemote)
+    setreadonly(mt, false)
     
-    purchaseRemote.FireServer = function(self, ...)
+    local oldNamecall = mt.__namecall
+    
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
         local args = {...}
         
-        print("\n💰 PURCHASE REQUEST INTERCEPTED!")
-        print("Arguments:")
-        for i, arg in ipairs(args) do
-            if type(arg) == "table" then
-                print(string.format("  [%d] table:", i))
-                for k, v in pairs(arg) do
-                    print(string.format("    %s = %s (%s)", tostring(k), tostring(v), type(v)))
+        if self == purchaseRemote and method == "FireServer" then
+            print("\n💰 PURCHASE REQUEST INTERCEPTED!")
+            print("Arguments:")
+            for i, arg in ipairs(args) do
+                if type(arg) == "table" then
+                    print(string.format("  [%d] table:", i))
+                    for k, v in pairs(arg) do
+                        if type(v) == "table" then
+                            print(string.format("    %s = table (nested)", tostring(k)))
+                            for k2, v2 in pairs(v) do
+                                print(string.format("      %s = %s", tostring(k2), tostring(v2)))
+                            end
+                        else
+                            print(string.format("    %s = %s (%s)", tostring(k), tostring(v), type(v)))
+                        end
+                    end
+                else
+                    print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
                 end
-            else
-                print(string.format("  [%d] %s (%s)", i, tostring(arg), type(arg)))
             end
+            
+            -- Store for analysis
+            table.insert(RemoteScanner.remoteTraffic, {
+                remote = "ServerSideBulkPurchaseEvent",
+                args = args,
+                timestamp = tick()
+            })
         end
         
-        -- Store for analysis
-        table.insert(RemoteScanner.remoteTraffic, {
-            remote = "ServerSideBulkPurchaseEvent",
-            args = args,
-            timestamp = tick()
-        })
-        
-        -- Call original (comment this out to block purchases)
-        return oldFire(self, ...)
-    end
+        return oldNamecall(self, ...)
+    end)
+    
+    setreadonly(mt, true)
     
     print("✓ Purchase remote hooked! Try buying something now.")
 end
