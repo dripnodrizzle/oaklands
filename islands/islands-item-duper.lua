@@ -659,82 +659,154 @@ end
 function RemoteScanner.testPurchaseExploit()
     print("\n💰 Testing Purchase Exploit...")
     
-    local purchaseRemote = game:GetService("RobloxReplicatedStorage"):FindFirstChild("ServerSideBulkPurchaseEvent")
+    -- Find the actual purchase remote
+    local clientRequest7 = game:GetService("ReplicatedStorage")
+        :WaitForChild("rbxts_include")
+        :WaitForChild("node_modules")
+        :WaitForChild("@rbxts")
+        :WaitForChild("net")
+        :WaitForChild("out")
+        :WaitForChild("_NetManaged")
+        :FindFirstChild("client_request_7")
     
-    if not purchaseRemote then
-        warn("❌ Purchase remote not found!")
+    if not clientRequest7 then
+        warn("❌ client_request_7 not found!")
         return
     end
     
-    print("✓ Found:", purchaseRemote:GetFullName())
-    print("\n📝 Testing different purchase payloads...")
+    print("✓ Found:", clientRequest7:GetFullName())
+    print("Type:", clientRequest7.ClassName)
+    
+    print("\n📝 Testing exploit payloads...")
+    print("(Server will reject invalid ones, accept exploitable ones)")
     
     -- Test 1: Empty purchase
-    print("\n[Test 1] Sending empty purchase...")
-    pcall(function()
-        purchaseRemote:FireServer({})
-        print("✓ Sent empty table")
+    print("\n[Test 1] Empty table...")
+    local result1 = pcall(function()
+        local result = clientRequest7:InvokeServer({})
+        print("✓ Result:", tostring(result))
     end)
-    
-    task.wait(1)
+    task.wait(0.5)
     
     -- Test 2: Negative amount
-    print("\n[Test 2] Sending negative amount purchase...")
+    print("\n[Test 2] Negative amount...")
     pcall(function()
-        purchaseRemote:FireServer({
-            amount = -1,
-            itemId = 1
-        })
-        print("✓ Sent negative amount")
+        local result = clientRequest7:InvokeServer({amount = -999, itemId = 1})
+        print("✓ Result:", tostring(result))
     end)
-    
-    task.wait(1)
+    task.wait(0.5)
     
     -- Test 3: Zero price
-    print("\n[Test 3] Sending zero price purchase...")
+    print("\n[Test 3] Zero/null price...")
     pcall(function()
-        purchaseRemote:FireServer({
-            amount = 1,
-            price = 0,
-            itemId = 1
-        })
-        print("✓ Sent zero price")
+        local result = clientRequest7:InvokeServer({amount = 10, price = 0, itemId = 1})
+        print("✓ Result:", tostring(result))
+    end)
+    task.wait(0.5)
+    
+    -- Test 4: String injection
+    print("\n[Test 4] String in number field...")
+    pcall(function()
+        local result = clientRequest7:InvokeServer({amount = "999999", itemId = 1})
+        print("✓ Result:", tostring(result))
+    end)
+    task.wait(0.5)
+    
+    -- Test 5: Nil fields
+    print("\n[Test 5] Missing required fields...")
+    pcall(function()
+        local result = clientRequest7:InvokeServer({})
+        print("✓ Result:", tostring(result))
     end)
     
-    task.wait(1)
-    
-    -- Test 4: Massive amount
-    print("\n[Test 4] Sending huge amount...")
-    pcall(function()
-        purchaseRemote:FireServer({
-            amount = 999999,
-            itemId = 1
-        })
-        print("✓ Sent huge amount")
-    end)
-    
-    print("\n💡 Check your coins and inventory!")
-    print("If any test worked, you'll see changes")
+    print("\n💡 Check your coins! If any worked, your balance changed")
+    print("Current coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
 end
 
 function RemoteScanner.manualPurchaseCall(data)
     print("\n💰 Manually calling purchase remote...")
     
-    local purchaseRemote = game:GetService("RobloxReplicatedStorage"):FindFirstChild("ServerSideBulkPurchaseEvent")
+    local clientRequest7 = game:GetService("ReplicatedStorage")
+        :WaitForChild("rbxts_include")
+        :WaitForChild("node_modules")
+        :WaitForChild("@rbxts")
+        :WaitForChild("net")
+        :WaitForChild("out")
+        :WaitForChild("_NetManaged")
+        :FindFirstChild("client_request_7")
     
-    if not purchaseRemote then
-        warn("❌ Purchase remote not found!")
+    if not clientRequest7 then
+        warn("❌ client_request_7 not found!")
         return
     end
     
-    print("Sending:", game:GetService("HttpService"):JSONEncode(data))
+    print("Calling with:", game:GetService("HttpService"):JSONEncode(data))
     
-    pcall(function()
-        purchaseRemote:FireServer(data)
-        print("✓ Sent!")
+    local success, result = pcall(function()
+        return clientRequest7:InvokeServer(data)
     end)
     
-    print("💡 Check if it worked!")
+    if success then
+        print("✓ Success! Result:", tostring(result))
+    else
+        warn("❌ Failed:", result)
+    end
+    
+    print("Current coins:", game.Players.LocalPlayer:GetAttribute("Coins"))
+end
+
+function RemoteScanner.hookPurchaseRemote()
+    print("\n💰 Hooking client_request_7 (Purchase Remote)...")
+    
+    local clientRequest7 = game:GetService("ReplicatedStorage")
+        :WaitForChild("rbxts_include")
+        :WaitForChild("node_modules")
+        :WaitForChild("@rbxts")
+        :WaitForChild("net")
+        :WaitForChild("out")
+        :WaitForChild("_NetManaged")
+        :FindFirstChild("client_request_7")
+    
+    if not clientRequest7 then
+        warn("❌ client_request_7 not found!")
+        return
+    end
+    
+    print("✓ Found:", clientRequest7:GetFullName())
+    
+    -- Hook using hookfunction
+    local success = pcall(function()
+        local oldInvoke = clientRequest7.InvokeServer
+        
+        clientRequest7.InvokeServer = function(self, ...)
+            local args = {...}
+            
+            print("\n💰 PURCHASE DETECTED!")
+            print("Arguments:")
+            for i, arg in ipairs(args) do
+                if type(arg) == "table" then
+                    print(string.format("  [%d] table:", i))
+                    for k, v in pairs(arg) do
+                        print(string.format("    %s = %s", tostring(k), tostring(v)))
+                    end
+                else
+                    print(string.format("  [%d] %s", i, tostring(arg)))
+                end
+            end
+            
+            -- Call original
+            local result = oldInvoke(self, ...)
+            print("Result:", tostring(result))
+            
+            return result
+        end
+        
+        print("✓ Hooked! Now buy something to see the purchase data.")
+    end)
+    
+    if not success then
+        warn("❌ Hook failed - try testPurchaseExploit() instead")
+    end
 end
 
 function RemoteScanner.showRecentTraffic(count)
