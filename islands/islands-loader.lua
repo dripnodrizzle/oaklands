@@ -231,23 +231,18 @@ IslandsMetatable.__index = function(t, key)
         return builtin
     end
     
-    -- Check if it's a script that can be auto-loaded
+    -- Check if it's already loaded
+    if LoadedScripts[key] then
+        return LoadedScripts[key]
+    end
+    
+    -- Check if it's a script that CAN be loaded
     if SCRIPTS[key] then
-        -- Auto-load if not already loaded
-        if not LoadedScripts[key] then
-            print(string.format("🔄 Auto-loading %s...", SCRIPTS[key].name))
-            local loaded = loadScript(key)
-            if not loaded then
-                warn(string.format("Failed to load %s - returning nil", SCRIPTS[key].name))
-                return nil
-            end
-        end
-        
-        local cached = LoadedScripts[key]
-        if cached == true then
-            warn(string.format("%s loaded but has no functions (auto-run script)", SCRIPTS[key].name))
-        end
-        return cached
+        -- Can't yield in __index, so schedule the load for next frame
+        warn(string.format("⚠️ Islands.%s not loaded yet!", key))
+        warn(string.format("   Load it first: Islands.presets.full() or Islands.load('%s')", key))
+        warn("   Scripts can't auto-load (would cause yield error)")
+        return nil
     end
     
     -- Nothing found
@@ -255,7 +250,7 @@ IslandsMetatable.__index = function(t, key)
     return nil
 end
 
--- Apply metatable for auto-loading
+-- Apply metatable
 setmetatable(Islands, IslandsMetatable)
 
 -- =====================================================
@@ -293,11 +288,13 @@ print("   Islands.chest()              - Load chest exploiter")
 print("   Islands.load('spy')          - Load remote spy")
 print("   Islands.presets.full()       - Load all scripts")
 
-print("\n📦 Individual Script Usage (AUTO-LOAD):")
-print("   Scripts load automatically when accessed:")
-print("   Islands.chest.AutoChestOpener.enable(15)")
+print("\n📦 Individual Script Usage:")
+print("   Load scripts first, then use them:")
+print("   Islands.load('duper')  -- or use a preset")
+print("   task.wait(0.5)         -- wait for load")
 print("   Islands.duper.ItemScanner.scanInventory()")
-print("   Islands.spy.TrafficInterceptor.dumpTraffic()")
+print("")
+print("   TIP: Use presets to load multiple scripts at once")
 
 print("\n🔧 Helper Functions:")
 print("   Islands.loadScript('chest')  - Manually load a script")

@@ -45,39 +45,53 @@ TrafficInterceptor.traffic = {}
 TrafficInterceptor.enabled = false
 
 function TrafficInterceptor.hookRemote(remote, remotePath)
-    if not remote:IsA("RemoteEvent") then
+    -- Skip if not a RemoteEvent or RemoteFunction
+    if not (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction")) then
         return
     end
     
-    -- Hook FireServer
-    local oldFireServer = remote.FireServer
-    remote.FireServer = function(self, ...)
-        local args = {...}
-        local decodedName = RemoteDecoder.decodeRemoteName(remote.Name)
-        
-        print(string.format("→ [SEND] %s (%d args)", decodedName, #args))
-        
-        -- Log arguments
-        for i, arg in ipairs(args) do
-            local argType = type(arg)
-            local argValue = tostring(arg)
-            
-            if argType == "table" then
-                argValue = HttpService:JSONEncode(arg)
+    -- Protect against errors
+    pcall(function()
+        if remote:IsA("RemoteEvent") then
+            -- Check if FireServer exists (some managed remotes don't have it)
+            if not remote.FireServer then
+                return
             end
             
-            print(string.format("   [%d] %s: %s", i, argType, argValue))
+            -- Hook FireServer
+            local oldFireServer = remote.FireServer
+            remote.FireServer = function(self, ...)
+                local args = {...}
+                local decodedName = RemoteDecoder.decodeRemoteName(remote.Name)
+                
+                print(string.format("→ [SEND] %s (%d args)", decodedName, #args))
+                
+                -- Log arguments
+                for i, arg in ipairs(args) do
+                    local argType = type(arg)
+                    local argValue = tostring(arg)
+                    
+                    if argType == "table" then
+                        pcall(function()
+                            argValue = HttpService:JSONEncode(arg)
+                        end)
+                    end
+                    
+                    print(string.format("   [%d] %s: %s", i, argType, argValue))
+                end
+                
+                table.insert(TrafficInterceptor.traffic, {
+                    direction = "send",
+                    remote = remote.Name,
+                    decodedName = decodedName,
+                    args = args,
+                    timestamp = tick()
+                })
+                
+                return oldFireServer(self, ...)
+            end
         end
-        
-        table.insert(TrafficInterceptor.traffic, {
-            direction = "send",
-            remote = remote.Name,
-            decodedName = decodedName,
-            args = args,
-            timestamp = tick()
-        })
-        
-        return oldFireServer(self, ...)
+    end)
     end
     
     -- Hook OnClientEvent
