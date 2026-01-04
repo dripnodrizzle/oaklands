@@ -128,7 +128,9 @@ function NetworkInterceptor.hookNetworkRequests()
             
             NetworkService.sendClientRequest = function(self, requestId, data)
                 -- Log all requests
-                print(string.format("📡 Request: %s", tostring(requestId)))
+                pcall(function()
+                    print(string.format("📡 Request: %s", tostring(requestId)))
+                end)
                 
                 table.insert(NetworkInterceptor.requests, {
                     requestId = requestId,
@@ -137,9 +139,12 @@ function NetworkInterceptor.hookNetworkRequests()
                 })
                 
                 -- Check if it's item-related
-                if data and (data.item or data.itemId or data.slot or data.amount) then
-                    print("  📦 Item-related request detected!")
-                    print(string.format("  Data: %s", game:GetService("HttpService"):JSONEncode(data)))
+                if data and type(data) == "table" and (data.item or data.itemId or data.slot or data.amount) then
+                    pcall(function()
+                        print("  📦 Item-related request detected!")
+                        local jsonData = game:GetService("HttpService"):JSONEncode(data)
+                        print(string.format("  Data: %s", jsonData))
+                    end)
                     
                     table.insert(NetworkInterceptor.itemRequests, {
                         requestId = requestId,
