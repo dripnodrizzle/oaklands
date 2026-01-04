@@ -239,13 +239,16 @@ function NetworkInterceptor.hookNetworkRequests()
                 
                 -- Check if it's item-related and store it
                 pcall(function()
-                    if data and type(data) == "table" and (data.item or data.itemId or data.slot or data.amount) then
-                        table.insert(NetworkInterceptor.itemRequests, {
-                            requestId = requestId,
-                            data = serializedData,
-                            timestamp = tick()
-                        })
-                        print("  📦 Item-related request detected!")
+                    if data and type(data) == "table" then
+                        -- Check for item-related properties
+                        if data.item or data.itemId or data.slot or data.amount or data.hotbarTools then
+                            table.insert(NetworkInterceptor.itemRequests, {
+                                requestId = requestId,
+                                data = data,  -- Store original data
+                                timestamp = tick()
+                            })
+                            print("  📦 Item-related request detected!")
+                        end
                     end
                 end)
                 
