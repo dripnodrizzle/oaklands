@@ -60,11 +60,102 @@ local function ExploreData()
     Log("========================================")
 end
 
+-- Find server remotes
+local function FindRemotes()
+    local remotes = {}
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    
+    for _, descendant in pairs(ReplicatedStorage:GetDescendants()) do
+        if descendant:IsA("RemoteEvent") or descendant:IsA("RemoteFunction") then
+            table.insert(remotes, descendant)
+        end
+    end
+    
+    return remotes
+end
+
+-- Try to use server remotes for gold/exp
+local function TryServerRemotes()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local success = false
+    
+    -- Try the ObtainDrop remote for gold
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    if remotes then
+        local obtainDrop = remotes:FindFirstChild("ObtainDrop")
+        if obtainDrop and obtainDrop:IsA("RemoteEvent") then
+            -- Try gold drops
+            local goldAttempts = {
+                {"GoldDrop2", Config.GoldAmount},
+                {"GoldDrop", Config.GoldAmount},
+                {"Gold", Config.GoldAmount},
+                {"Money", Config.GoldAmount},
+            }
+            
+            for _, attempt in pairs(goldAttempts) do
+                local result, err = pcall(function()
+                    obtainDrop:FireServer(attempt[1], attempt[2])
+                end)
+                if result then
+                    Log("Server: Added " .. attempt[2] .. " gold via " .. attempt[1])
+                    TotalGoldGained = TotalGoldGained + attempt[2]
+                    success = true
+                end
+            end
+        end
+    end
+    
+    -- Search for other remotes
+    if remotes then
+        for _, remote in pairs(remotes:GetChildren()) do
+            if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+                local remoteName = remote.Name:lower()
+                
+                -- Try EXP remotes
+                if remoteName:find("exp") or remoteName:find("xp") or remoteName:find("level") then
+                    local attempts = {
+                        function() 
+                            if remote:IsA("RemoteFunction") then
+                                return remote:InvokeServer(Config.ExpAmount)
+                            else
+                                remote:FireServer(Config.ExpAmount)
+                            end
+                        end,
+                        function() 
+                            if remote:IsA("RemoteFunction") then
+                                return remote:InvokeServer("Add", Config.ExpAmount)
+                            else
+                                remote:FireServer("Add", Config.ExpAmount)
+                            end
+                        end,
+                    }
+                    
+                    for _, attemptFunc in pairs(attempts) do
+                        local result, err = pcall(attemptFunc)
+                        if result then
+                            Log("Server: Used remote " .. remote.Name .. " for exp")
+                            success = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return success
+end
+
 -- Boost function
 local function BoostResources()
     local success = false
     
-    -- Boost EXP
+    -- Try server remotes first
+    if TryServerRemotes() then
+        success = true
+    end
+    
+    -- Also boost client-side for immediate visual feedback
     local expFields = {"Experience", "Exp", "XP", "Level"}
     for _, fieldName in pairs(expFields) do
         local field = Data:FindFirstChild(fieldName)
@@ -75,13 +166,12 @@ local function BoostResources()
             end)
             if result then
                 TotalExpGained = TotalExpGained + Config.ExpAmount
-                Log("Added " .. Config.ExpAmount .. " to " .. fieldName .. " (was: " .. oldValue .. ", now: " .. field.Value .. ")")
+                Log("Client: Added " .. Config.ExpAmount .. " to " .. fieldName)
                 success = true
             end
         end
     end
     
-    -- Boost Gold/Money
     local goldFields = {"Gold", "Money", "Cash", "Coins", "Currency", "Yen"}
     for _, fieldName in pairs(goldFields) do
         local field = Data:FindFirstChild(fieldName)
@@ -92,20 +182,18 @@ local function BoostResources()
             end)
             if result then
                 TotalGoldGained = TotalGoldGained + Config.GoldAmount
-                Log("Added " .. Config.GoldAmount .. " to " .. fieldName .. " (was: " .. oldValue .. ", now: " .. field.Value .. ")")
+                Log("Client: Added " .. Config.GoldAmount .. " to " .. fieldName)
                 success = true
             end
         end
     end
     
-    -- Boost Stamina
     local stamina = Data:FindFirstChild("Stamina")
     if stamina and stamina:IsA("ValueBase") then
         local result, err = pcall(function()
             stamina.Value = Config.StaminaAmount
         end)
         if result then
-            Log("Set Stamina to " .. Config.StaminaAmount)
             success = true
         end
     end
@@ -196,6 +284,13 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         Log("========================================")
     elseif input.KeyCode == Enum.KeyCode.D then
         ExploreData()
+    elseif input.KeyCode == Enum.KeyCode.R then
+        Log("Searching for remotes...")
+        local remotes = FindRemotes()
+        Log("Found " .. #remotes .. " remotes:")
+        for _, remote in pairs(remotes) do
+            Log("  - " .. remote:GetFullName() .. " (" .. remote.ClassName .. ")")
+        end
     elseif input.KeyCode == Enum.KeyCode.M then
         Config.MonitorChanges = not Config.MonitorChanges
         Log("Monitoring " .. (Config.MonitorChanges and "ENABLED" or "DISABLED"))
@@ -220,6 +315,7 @@ Log("  B - Manually boost resources")
 Log("  N - Toggle auto-boost ON/OFF")
 Log("  I - Show current stats")
 Log("  D - Explore data structure")
+Log("  R - List all remotes")
 Log("  M - Toggle monitoring ON/OFF")
 Log("  = - Increase boost amounts")
 Log("  - - Decrease boost amounts")
