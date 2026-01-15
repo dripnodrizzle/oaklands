@@ -10,7 +10,7 @@ local Workspace = game:GetService("Workspace")
 
 
 local enabled = true
-local attackDelay = 0.01 -- Adjust for desired speed
+local attackDelay = 0.0001 -- Adjust for desired speed
 local auraRange = 12 -- Range in studs (change as needed, e.g., 10-15)
 
 -- Helper: Find the closest enemy within range
