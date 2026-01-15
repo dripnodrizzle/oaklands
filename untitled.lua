@@ -52,7 +52,11 @@ end
 print("\n")
 
 print("UNC Environment Check")
-print("✅ - Pass, ⛔ - Fail, ⏺️ - No test, ⚠️ - Missing aliases\n")
+print("PASS - Test passed successfully")
+print("FAIL - Test failed")
+print("NO TEST - No test implemented for this item")
+print("MISSING ALIASES - One or more expected aliases are missing")
+print("")
 
 task.defer(function()
 	repeat task.wait() until running == 0
@@ -884,18 +888,18 @@ local function test(name, aliases, callback)
 
 	task.spawn(function()
 		if not callback then
-			print("⏺️ " .. name)
+			print("NO TEST: " .. name)
 		elseif not getGlobal(name) then
 			fails = 1
-			warn("⛔ " .. name)
+			warn("FAIL: " .. name)
 		else
 			local success, message = pcall(callback)
 			if success then
 				passes = 1
-				print("✅ " .. name .. (message and " • " .. message or ""))
+				print("PASS: " .. name .. (message and " • " .. message or ""))
 			else
 				fails = 1
-				warn("⛔ " .. name .. " failed: " .. message)
+				warn("FAIL: " .. name .. " failed: " .. message)
 			end
 		end
 		local undefinedAliases = {}
@@ -906,7 +910,7 @@ local function test(name, aliases, callback)
 		end
 		if #undefinedAliases > 0 then
 			undefined = 1
-			warn("⚠️ " .. table.concat(undefinedAliases, ", "))
+			warn("MISSING ALIASES: " .. table.concat(undefinedAliases, ", "))
 		end
 
 		running = 1
@@ -929,9 +933,9 @@ task.defer(function()
 	print("\n")
 
 	print("UNC Summary")
-	print("✅ Tested with a " .. rate .. "% success rate (" .. outOf .. ")")
-	print("⛔ " .. fails .. " tests failed")
-	print("⚠️ " .. undefined .. " globals are missing aliases")
+	print("PASS: Tested with a " .. rate .. "% success rate (" .. outOf .. ")")
+	print("FAIL: " .. fails .. " tests failed")
+	print("MISSING ALIASES: " .. undefined .. " globals are missing aliases")
 end)
 
 -- Cache
