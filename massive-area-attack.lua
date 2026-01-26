@@ -109,9 +109,10 @@ task.spawn(function()
             end
             if #targets > 0 then
                 doVFX()
-                -- Fire the Skill remote 10,000 times for continuous effect
+                -- Fire the Skill remote 10,000 times for continuous effect, with debug prints
                 for i = 1, ATTACK_COUNT do
                     local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
+                    print("[DEBUG] Firing Skill remote:", unpack(args))
                     skillRemote:FireServer(unpack(args))
                 end
             end
