@@ -6,7 +6,9 @@
 
 local module_upvr = require(game:GetService("ReplicatedStorage"):WaitForChild("Package"):WaitForChild("Modules"):WaitForChild("CoreMod"))
 local AREA_RADIUS = 17.5 -- 15-20 studs
-local ATTACK_COUNT = 10000 -- reduced to 10,000 for performance
+local ATTACK_COUNT = 1 -- fire only once per cycle to prevent animation overload
+
+print("[DEBUG] massive-area-attack.lua loaded and running!")
 
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -95,10 +97,12 @@ local skillRemote = game:GetService("ReplicatedStorage"):WaitForChild("Package")
 -- You may need to adjust the arguments to match the expected hitbox/area parameters for your game.
 -- Here, we add a large hitbox argument (Vector3.new(100,100,100)) if the remote expects a size or CFrame.
 
+
 task.spawn(function()
     while true do
         userChar = getCurrentChar()
         if userChar and userChar.PrimaryPart then
+            print("[DEBUG] Character and PrimaryPart found:", userChar.Name)
             local targets = {}
             for _, enemy in ipairs(workspace:GetChildren()) do
                 if enemy:IsA("Model") and enemy ~= userChar and enemy.PrimaryPart and enemy:FindFirstChildOfClass("Humanoid") then
@@ -107,15 +111,19 @@ task.spawn(function()
                     end
                 end
             end
+            print("[DEBUG] Targets found:", #targets)
+            for _, t in ipairs(targets) do
+                print("[DEBUG] Target:", t.Name)
+            end
             if #targets > 0 then
                 doVFX()
-                -- Fire the Skill remote 10,000 times for continuous effect, with debug prints
-                for i = 1, ATTACK_COUNT do
-                    local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
-                    print("[DEBUG] Firing Skill remote:", unpack(args))
-                    skillRemote:FireServer(unpack(args))
-                end
+                -- Only fire once per cycle to avoid animation spam
+                local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
+                print("[DEBUG] Firing Skill remote:", unpack(args))
+                skillRemote:FireServer(unpack(args))
             end
+        else
+            print("[DEBUG] Waiting for character/PrimaryPart...")
         end
         task.wait(0.1) -- check very frequently for continuous effect
     end
