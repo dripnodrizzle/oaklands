@@ -6,7 +6,7 @@
 
 local module_upvr = require(game:GetService("ReplicatedStorage"):WaitForChild("Package"):WaitForChild("Modules"):WaitForChild("CoreMod"))
 local AREA_RADIUS = 17.5 -- 15-20 studs
-local ATTACK_COUNT = 20000 -- tens of thousands
+local ATTACK_COUNT = 10000 -- reduced to 10,000 for performance
 
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -109,10 +109,11 @@ task.spawn(function()
             end
             if #targets > 0 then
                 doVFX()
-                -- Fire a single large-area attack, not just per-enemy
-                -- Try to use your character's position as the center
-                local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
-                skillRemote:FireServer(unpack(args))
+                -- Fire the Skill remote 10,000 times for continuous effect
+                for i = 1, ATTACK_COUNT do
+                    local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
+                    skillRemote:FireServer(unpack(args))
+                end
             end
         end
         task.wait(0.1) -- check very frequently for continuous effect
