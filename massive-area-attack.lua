@@ -88,6 +88,9 @@ local function isTargetingMe(enemy)
 end
 
 
+
+local skillRemote = game:GetService("ReplicatedStorage"):WaitForChild("Package"):WaitForChild("Events"):WaitForChild("Skill")
+
 task.spawn(function()
     while true do
         userChar = getCurrentChar()
@@ -104,9 +107,9 @@ task.spawn(function()
             if #targets > 0 then
                 doVFX()
                 for _, target in ipairs(targets) do
-                    if target and typeof(target.BreakJoints) == "function" then
-                        target:BreakJoints() -- server kill
-                    end
+                    -- Fire the Skill remote for each enemy targeting me
+                    local args = {"UseSkill", "Combat"}
+                    skillRemote:FireServer(unpack(args))
                 end
             end
         end
