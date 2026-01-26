@@ -14,5 +14,6 @@ while true do
             SkillRemote:FireServer("UseSkill", "Combat")
         end)
     end
-    wait(0.5)
+    -- Super spam: minimal delay for maximum effect
+    task.wait()
 end
