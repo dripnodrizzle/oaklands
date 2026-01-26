@@ -80,11 +80,13 @@ local function doVFX()
 end
 
 
+
 local function isTargetingMe(enemy)
     local hum = enemy:FindFirstChildOfClass("Humanoid")
     if not hum or not hum.Target then return false end
     return hum.Target == userChar
 end
+
 
 task.spawn(function()
     while true do
@@ -102,11 +104,8 @@ task.spawn(function()
             if #targets > 0 then
                 doVFX()
                 for _, target in ipairs(targets) do
-                    local hum = target:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
-                        for i = 1, ATTACK_COUNT do
-                            hum:TakeDamage(1)
-                        end
+                    if target and typeof(target.BreakJoints) == "function" then
+                        target:BreakJoints() -- server kill
                     end
                 end
             end
