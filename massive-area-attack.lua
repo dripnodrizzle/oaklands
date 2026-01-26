@@ -89,14 +89,17 @@ end
 
 
 
+
 local skillRemote = game:GetService("ReplicatedStorage"):WaitForChild("Package"):WaitForChild("Events"):WaitForChild("Skill")
+
+-- You may need to adjust the arguments to match the expected hitbox/area parameters for your game.
+-- Here, we add a large hitbox argument (Vector3.new(100,100,100)) if the remote expects a size or CFrame.
 
 task.spawn(function()
     while true do
         userChar = getCurrentChar()
         if userChar and userChar.PrimaryPart then
             local targets = {}
-            -- Only attack enemies targeting me
             for _, enemy in ipairs(workspace:GetChildren()) do
                 if enemy:IsA("Model") and enemy ~= userChar and enemy.PrimaryPart and enemy:FindFirstChildOfClass("Humanoid") then
                     if isTargetingMe(enemy) then
@@ -106,13 +109,12 @@ task.spawn(function()
             end
             if #targets > 0 then
                 doVFX()
-                for _, target in ipairs(targets) do
-                    -- Fire the Skill remote for each enemy targeting me
-                    local args = {"UseSkill", "Combat"}
-                    skillRemote:FireServer(unpack(args))
-                end
+                -- Fire a single large-area attack, not just per-enemy
+                -- Try to use your character's position as the center
+                local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
+                skillRemote:FireServer(unpack(args))
             end
         end
-        task.wait(0.5) -- check every half second
+        task.wait(0.1) -- check very frequently for continuous effect
     end
 end)
