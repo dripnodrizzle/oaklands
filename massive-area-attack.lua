@@ -3,25 +3,36 @@
 -- Standalone version: runs attack and VFX automatically for the local player
 
 
+
 local module_upvr = require(game:GetService("ReplicatedStorage"):WaitForChild("Package"):WaitForChild("Modules"):WaitForChild("CoreMod"))
 local AREA_RADIUS = 17.5 -- 15-20 studs
 local ATTACK_COUNT = 20000 -- tens of thousands
 
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
-local userChar = localPlayer and localPlayer.Character or nil
-if not userChar or not userChar.PrimaryPart then
-    local function onCharAdded(char)
-        repeat wait() until char.PrimaryPart
-        userChar = char
-    end
-    if localPlayer then
-        localPlayer.CharacterAdded:Connect(onCharAdded)
-    end
-    repeat wait() until userChar and userChar.PrimaryPart
+local userChar = nil
+
+local function waitForPrimaryPart(char)
+    while not (char and char.PrimaryPart) do wait() end
+    return char
 end
 
+local function getCurrentChar()
+    if localPlayer then
+        local char = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+        return waitForPrimaryPart(char)
+    end
+    return nil
+end
+
+userChar = getCurrentChar()
+
+localPlayer.CharacterAdded:Connect(function(char)
+    userChar = waitForPrimaryPart(char)
+end)
+
 local function getTargets()
+    if not userChar or not userChar.PrimaryPart then return {} end
     local origin = userChar.PrimaryPart.Position
     local myPlayer = Players:GetPlayerFromCharacter(userChar)
     local hitCharacters = {}
@@ -45,6 +56,7 @@ local function getTargets()
 end
 
 local function doVFX()
+    if not userChar or not userChar.PrimaryPart then return end
     local vfxCount = 200
     for i = 1, vfxCount do
         local angle = math.random() * 2 * math.pi
@@ -69,14 +81,17 @@ end
 
 task.spawn(function()
     while true do
-        local targets = getTargets()
-        if #targets > 0 then
-            doVFX()
-            for _, target in ipairs(targets) do
-                local hum = target:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    for i = 1, ATTACK_COUNT do
-                        hum:TakeDamage(1)
+        userChar = getCurrentChar()
+        if userChar and userChar.PrimaryPart then
+            local targets = getTargets()
+            if #targets > 0 then
+                doVFX()
+                for _, target in ipairs(targets) do
+                    local hum = target:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        for i = 1, ATTACK_COUNT do
+                            hum:TakeDamage(1)
+                        end
                     end
                 end
             end
