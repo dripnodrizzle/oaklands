@@ -79,11 +79,26 @@ local function doVFX()
     end
 end
 
+
+local function isTargetingMe(enemy)
+    local hum = enemy:FindFirstChildOfClass("Humanoid")
+    if not hum or not hum.Target then return false end
+    return hum.Target == userChar
+end
+
 task.spawn(function()
     while true do
         userChar = getCurrentChar()
         if userChar and userChar.PrimaryPart then
-            local targets = getTargets()
+            local targets = {}
+            -- Only attack enemies targeting me
+            for _, enemy in ipairs(workspace:GetChildren()) do
+                if enemy:IsA("Model") and enemy ~= userChar and enemy.PrimaryPart and enemy:FindFirstChildOfClass("Humanoid") then
+                    if isTargetingMe(enemy) then
+                        table.insert(targets, enemy)
+                    end
+                end
+            end
             if #targets > 0 then
                 doVFX()
                 for _, target in ipairs(targets) do
