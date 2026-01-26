@@ -118,7 +118,7 @@ task.spawn(function()
             if #targets > 0 then
                 doVFX()
                 -- Only fire once per cycle to avoid animation spam
-                local args = {"UseSkill", "Combat", userChar.PrimaryPart.CFrame, Vector3.new(100,100,100)}
+                local args = {"UseSkill", "Combat"}
                 print("[DEBUG] Firing Skill remote:", unpack(args))
                 skillRemote:FireServer(unpack(args))
             end
