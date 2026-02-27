@@ -1,105 +1,105 @@
 --> NPC Server-Side Kill All
 --> Finds and exploits damage RemoteEvents to kill NPCs server-side
 
-print("[Server Kill] Starting...")
+
+print("[Kill Aura] Starting...")
+
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 
+
 local EntityFolder = Workspace:FindFirstChild("EntityFolder")
 if not EntityFolder then
-    warn("[Server Kill] EntityFolder not found!")
+    warn("[Kill Aura] EntityFolder not found!")
     return
 end
 
--- Function to find all RemoteEvents and RemoteFunctions
+
+-- Find all RemoteEvents and RemoteFunctions in ReplicatedStorage
 local function FindRemotes()
     local remotes = {}
-    
     for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
         if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
             table.insert(remotes, obj)
         end
     end
-    
-    print(string.format("[Server Kill] Found %d remotes in ReplicatedStorage", #remotes))
+    print(string.format("[Kill Aura] Found %d remotes in ReplicatedStorage", #remotes))
     return remotes
 end
 
--- Function to find combat/damage related remotes
+
+-- Find combat/damage related remotes
 local function FindCombatRemotes(remotes)
     local combatRemotes = {}
-    local keywords = {"damage", "attack", "hit", "hurt", "combat", "fight", "kill", "shoot", "fire", "swing"}
-    
+    -- Only use remotes that are likely to apply damage, not trigger attack animation
+    local includeKeywords = {"damage", "hurt", "kill"}
+    local excludeKeywords = {"attack", "swing", "m1", "slash", "combo"}
     for _, remote in ipairs(remotes) do
         local name = remote.Name:lower()
-        for _, keyword in ipairs(keywords) do
+        local include = false
+        for _, keyword in ipairs(includeKeywords) do
             if name:find(keyword) then
-                table.insert(combatRemotes, remote)
-                print(string.format("[Server Kill] Found combat remote: %s (%s)", remote.Name, remote.ClassName))
+                include = true
                 break
             end
         end
+        if include then
+            for _, ex in ipairs(excludeKeywords) do
+                if name:find(ex) then
+                    include = false
+                    break
+                end
+            end
+        end
+        if include then
+            table.insert(combatRemotes, remote)
+            print(string.format("[Kill Aura] Using remote: %s (%s)", remote.Name, remote.ClassName))
+        else
+            print(string.format("[Kill Aura] Skipping remote: %s (%s)", remote.Name, remote.ClassName))
+        end
     end
-    
     return combatRemotes
 end
 
--- Try to kill NPCs using found remotes
-local function TryKillNPCs(combatRemotes)
-    local npcs = {}
-    
-    for _, npc in ipairs(EntityFolder:GetChildren()) do
-        if npc:IsA("Model") then
-            local humanoid = npc:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                table.insert(npcs, npc)
-            end
-        end
-    end
-    
-    print(string.format("[Server Kill] Found %d alive NPCs", #npcs))
-    
+
+-- True kill aura: rapidly kills all NPCs using damage remotes, no emote/animation, does not block M1
+local function KillAura(combatRemotes)
     if #combatRemotes == 0 then
-        warn("[Server Kill] No combat remotes found! Try these alternatives:")
-        print("1. Use the inspector to find RemoteEvents when you attack")
-        print("2. Look in ReplicatedStorage for damage/combat remotes")
-        print("3. Try: _G.InspectObject('Remote') or _G.FindByClass('RemoteEvent')")
+        warn("[Kill Aura] No combat remotes found! Use inspector to find correct remote.")
         return
     end
-    
-    -- Try each combat remote
-    for _, remote in ipairs(combatRemotes) do
-        print(string.format("[Server Kill] Trying remote: %s", remote.Name))
-        
-        for _, npc in ipairs(npcs) do
-            local humanoid = npc:FindFirstChildOfClass("Humanoid")
-            
-            -- Try different common damage remote patterns
-            pcall(function()
-                if remote:IsA("RemoteEvent") then
-                    -- Try various argument patterns
-                    remote:FireServer(npc)
-                    remote:FireServer(humanoid)
-                    remote:FireServer(npc, 999999)
-                    remote:FireServer(humanoid, 999999)
-                    remote:FireServer({Target = npc, Damage = 999999})
-                    remote:FireServer({Target = humanoid, Damage = 999999})
+    local lastHit = {}
+    local COOLDOWN = 0.15 -- seconds per NPC (very fast, but not spammed every frame)
+    while true do
+        for _, npc in ipairs(EntityFolder:GetChildren()) do
+            if npc:IsA("Model") then
+                local humanoid = npc:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    local now = tick()
+                    if not lastHit[npc] or now - lastHit[npc] > COOLDOWN then
+                        for _, remote in ipairs(combatRemotes) do
+                            pcall(function()
+                                if remote:IsA("RemoteEvent") then
+                                    -- Only fire damage, do NOT fire emote/animation remotes
+                                    remote:FireServer(npc, 999999)
+                                    remote:FireServer({Target = npc, Damage = 999999})
+                                end
+                            end)
+                        end
+                        lastHit[npc] = now
+                    end
                 end
-            end)
-            
-            task.wait(0.01) -- Small delay to not spam
+            end
         end
+        task.wait(0.05)
     end
-    
-    print("[Server Kill] Attempted to kill all NPCs via server remotes")
-    print("[Server Kill] Check if NPCs died. If not, you need to find the correct remote.")
 end
 
--- Main execution
-print("[Server Kill] Scanning for combat remotes...")
+
+print("[Kill Aura] Scanning for combat remotes...")
 local allRemotes = FindRemotes()
 local combatRemotes = FindCombatRemotes(allRemotes)
 
@@ -111,12 +111,10 @@ end
 print("================================")
 print("")
 
--- Try to kill NPCs
-TryKillNPCs(combatRemotes)
+-- Start kill aura in a separate thread so it never blocks M1 or other input
+spawn(function()
+    KillAura(combatRemotes)
+end)
 
-print("")
-print("===== MANUAL USAGE =====")
-print("If auto-kill didn't work, manually fire the damage remote:")
-print("Example: ReplicatedStorage.RemoteName:FireServer(npc, damage)")
-print("Use the inspector to find the correct remote and arguments!")
-print("========================")
+print("[Kill Aura] Running. M1 and other actions are not blocked.")
+print("If kill aura does not work, use inspector to find the correct remote and arguments.")
