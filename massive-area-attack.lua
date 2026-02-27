@@ -1,9 +1,5 @@
 
 -- massive-area-attack.lua
--- Standalone version: runs attack and VFX automatically for the local player
-
-
-
 local module_upvr = require(game:GetService("ReplicatedStorage"):WaitForChild("Package"):WaitForChild("Modules"):WaitForChild("CoreMod"))
 local AREA_RADIUS = 17.5 -- 15-20 studs
 local ATTACK_COUNT = 1 -- fire only once per cycle to prevent animation overload
@@ -101,25 +97,48 @@ local skillRemote = game:GetService("ReplicatedStorage"):WaitForChild("Package")
 task.spawn(function()
     while true do
         userChar = getCurrentChar()
+        print("[DEBUG] Loop running!")
         if userChar and userChar.PrimaryPart then
-            print("[DEBUG] Character and PrimaryPart found:", userChar.Name)
+            print("[DEBUG] Character and PrimaryPart found: " .. tostring(userChar.Name))
             local targets = {}
-            for _, enemy in ipairs(workspace:GetChildren()) do
-                if enemy:IsA("Model") and enemy ~= userChar and enemy.PrimaryPart and enemy:FindFirstChildOfClass("Humanoid") then
-                    if isTargetingMe(enemy) then
-                        table.insert(targets, enemy)
+            local origin = userChar.PrimaryPart.Position
+            local enemiesFolder = workspace:FindFirstChild("Enemies")
+            if enemiesFolder and typeof(enemiesFolder.GetChildren) == "function" then
+                print("[DEBUG] Enemies folder found, children: " .. tostring(#enemiesFolder:GetChildren()))
+                for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+                    print("[DEBUG] Checking: " .. tostring(enemy.Name) .. " (" .. tostring(enemy.ClassName) .. ")")
+                    if not enemy:IsA("Model") then
+                        print("[DEBUG] Skipped (not a Model): " .. tostring(enemy.Name))
+                    elseif not enemy.PrimaryPart then
+                        print("[DEBUG] Skipped (no PrimaryPart): " .. tostring(enemy.Name))
+                    elseif not enemy:FindFirstChildOfClass("Humanoid") then
+                        print("[DEBUG] Skipped (no Humanoid): " .. tostring(enemy.Name))
+                    else
+                        local dist = (enemy.PrimaryPart.Position - origin).Magnitude
+                        print("[DEBUG] Distance to " .. tostring(enemy.Name) .. ": " .. tostring(dist))
+                        if dist <= AREA_RADIUS then
+                            print("[DEBUG] Target in radius: " .. tostring(enemy.Name))
+                            table.insert(targets, enemy)
+                        else
+                            print("[DEBUG] Out of radius: " .. tostring(enemy.Name))
+                        end
                     end
                 end
+            else
+                print("[DEBUG] Enemies folder not found or invalid!")
             end
-            print("[DEBUG] Targets found:", #targets)
+            print("[DEBUG] Targets found: " .. tostring(#targets))
             for _, t in ipairs(targets) do
-                print("[DEBUG] Target:", t.Name)
+                print("[DEBUG] Enemy found in radius: " .. tostring(t.Name))
             end
             if #targets > 0 then
+                local names = {}
+                for _, t in ipairs(targets) do table.insert(names, t.Name) end
+                print("[DEBUG] Engaging enemies: " .. table.concat(names, ", "))
                 doVFX()
                 -- Only fire once per cycle to avoid animation spam
                 local args = {"UseSkill", "Combat"}
-                print("[DEBUG] Firing Skill remote:", unpack(args))
+                print("[DEBUG] Firing Skill remote: " .. table.concat(args, ", "))
                 skillRemote:FireServer(unpack(args))
             end
         else

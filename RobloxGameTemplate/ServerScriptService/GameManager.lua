@@ -1,0 +1,2 @@
+-- Handles map voting, loading, wave progression, and gates
+-- Placeholder for GameManager script

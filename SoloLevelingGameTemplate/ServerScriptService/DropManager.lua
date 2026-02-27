@@ -1,0 +1,2 @@
+-- Handles monster and boss drops, including crystals, money, and rare items
+-- Placeholder for DropManager script

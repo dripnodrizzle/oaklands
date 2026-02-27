@@ -38,13 +38,28 @@ local function ListServers()
     repeat
         local url = urlBase .. (cursor ~= "" and ("&cursor=" .. cursor) or "")
         print("[Hopper][DEBUG] Requesting URL: " .. url)
-        local success, result = pcall(function()
-            local raw = game:HttpGet(url)
-            print("[Hopper][DEBUG] Raw response: " .. string.sub(raw, 1, 200))
-            return HttpService:JSONDecode(raw)
+        local success, response = pcall(function()
+            if http_request then
+                return http_request({Url = url, Method = "GET"})
+            elseif request then
+                return request({Url = url, Method = "GET"})
+            elseif syn and syn.request then
+                return syn.request({Url = url, Method = "GET"})
+            else
+                error("No supported HTTP request function found.")
+            end
         end)
-        if not success then
-            print("[Hopper][ERROR] HttpGet or JSONDecode failed: " .. tostring(result))
+        local result = nil
+        if success and response and response.Body then
+            local ok, data = pcall(function()
+                return HttpService:JSONDecode(response.Body)
+            end)
+            if ok and data then
+                result = data
+            end
+        end
+        if not result then
+            print("[Hopper][ERROR] Http request or JSONDecode failed.")
             break
         end
         if result and result.data then

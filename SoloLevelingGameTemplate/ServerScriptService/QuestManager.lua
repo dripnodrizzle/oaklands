@@ -1,0 +1,2 @@
+-- Handles quest assignment, progress, and turn-in
+-- Placeholder for QuestManager script

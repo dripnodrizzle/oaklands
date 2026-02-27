@@ -1,0 +1,1 @@
+-- ModuleScript for aura math, debuff scaling, and masking
