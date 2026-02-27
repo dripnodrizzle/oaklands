@@ -1,0 +1,2 @@
+-- Handles dungeon access, party logic, and dungeon runs
+-- Placeholder for DungeonManager script

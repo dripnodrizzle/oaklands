@@ -1,0 +1,2 @@
+-- Handles aura visibility, debuff logic, and masking
+-- Placeholder for AuraManager script

@@ -1,0 +1,1 @@
+-- RemoteEvent for shop actions

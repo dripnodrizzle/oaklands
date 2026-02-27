@@ -1,0 +1,1 @@
+-- RemoteEvent for monster and boss drops

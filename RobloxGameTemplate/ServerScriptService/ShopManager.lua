@@ -1,0 +1,2 @@
+-- Handles shop purchases, currency, and gotcha logic
+-- Placeholder for ShopManager script

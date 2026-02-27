@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JWT + WASM Demo</title>
+</head>
+<body>
+<script>
+// Minimal WASM demo: load WASM, call compute_proof(userId, timestamp), show result
+function getUnixTimestamp() {
+    return Math.floor(Date.now() / 1000);
+}
+
+async function loadWasmFromFile(file) {
+    const buffer = await file.arrayBuffer();
+    const wasmModule = await WebAssembly.instantiate(buffer);
+    return wasmModule.instance.exports;
+}
+
+async function runDemo() {
+    const wasmFile = document.getElementById('wasmInput').files[0];
+    const output = document.getElementById('output');
+    output.textContent = '';
+    if (!wasmFile) {
+        output.textContent = 'Please select a WASM file.';
+        return;
+    }
+    const timestamp = getUnixTimestamp();
+    output.textContent += 'Current UNIX timestamp: ' + timestamp + '\n';
+    let wasm;
+    try {
+        wasm = await loadWasmFromFile(wasmFile);
+    } catch (e) {
+        output.textContent += 'Failed to load WASM: ' + e.message + '\n';
+        return;
+    }
+    if (typeof wasm.compute_proof !== 'function') {
+        output.textContent += 'WASM does not export compute_proof.\n';
+        return;
+    }
+    const userId = 12345; // Hardcoded userId for demo
+    let proof;
+    try {
+        proof = wasm.compute_proof(userId, timestamp);
+    } catch (e) {
+        output.textContent += 'WASM call error: ' + e.message + '\n';
+        return;
+    }
+    output.textContent += 'WASM proof: ' + proof + '\n';
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+  document.body.innerHTML = `
+  <div style="font-family:monospace;max-width:600px;margin:2em auto;padding:2em;border:1px solid #ccc;border-radius:8px;">
+    <h2>Minimal WASM Demo</h2>
+    <label>WASM file:<br><input id="wasmInput" type="file" accept=".wasm"></label><br><br>
+    <button id="runBtn">Run</button>
+    <pre id="output" style="background:#f9f9f9;padding:1em;margin-top:1em;white-space:pre-wrap;"></pre>
+  </div>
+  `;
+  document.getElementById('runBtn').addEventListener('click', runDemo);
+});
+</script>
+</body>
+</html>
