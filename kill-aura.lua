@@ -1,174 +1,114 @@
---> Kill Aura
---> Automatically kills NPCs within radius
+print("[KA] Start")
 
-print("[Kill Aura] Starting...")
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
+local RS = game:GetService("ReplicatedStorage")
+local WS = game:GetService("Workspace")
 local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
-local Camera = Workspace.CurrentCamera
 
-local EntityFolder = Workspace:FindFirstChild("EntityFolder")
-if not EntityFolder then
-    warn("[Kill Aura] EntityFolder not found!")
-    return
+local LP = Players.LocalPlayer
+if not LP then return end
+
+local folder = WS:FindFirstChild("EntityFolder")
+local events = RS:FindFirstChild("Events")
+local combat = events and events:FindFirstChild("Combat")
+local attack = combat and combat:FindFirstChild("Attack")
+if not folder or not attack then return end
+
+local radius = 45
+local interval = 0.015
+local maxTick = 4
+local tweak = true
+local scale = 0.6
+local offset = Vector3.new(0,-1.2,0)
+
+local running = true
+local calls = 0
+local start = tick()
+local seen = {}
+local last = {}
+
+local function getRoot()
+    local c = LP.Character
+    if not c then return nil,nil end
+    local r = c:FindFirstChild("HumanoidRootPart")
+    if not r then return nil,nil end
+    return c,r
 end
 
--- Settings
-local AURA_RADIUS = 35 -- studs
-local ATTACK_INTERVAL = 0.05 -- seconds between attacks
-local SHOW_VISUALS = true -- show aura circle
-
--- Get combat remotes
-local CombatRemotes = ReplicatedStorage.Events.Combat
-local ToggleWeapon = CombatRemotes:FindFirstChild("Toggle Weapon")
-local Attack = CombatRemotes:FindFirstChild("Attack")
-local UseSkill = CombatRemotes:FindFirstChild("UseSkill")
-
--- Get character
-local char = Player.Character
-if not char or not char:FindFirstChild("HumanoidRootPart") then
-    warn("[Kill Aura] Character not found!")
-    return
+local function partOf(m)
+    return m:FindFirstChild("HumanoidRootPart") or m.PrimaryPart or m:FindFirstChildOfClass("BasePart")
 end
 
-local hrp = char.HumanoidRootPart
-
--- Toggle weapon on
-if ToggleWeapon then
-    pcall(function() ToggleWeapon:FireServer() end)
-    task.wait(0.2)
-end
-
--- Create visual aura
-local auraVisual
-if SHOW_VISUALS then
-    auraVisual = Instance.new("Part")
-    auraVisual.Name = "KillAura"
-    auraVisual.Size = Vector3.new(AURA_RADIUS * 2, 0.5, AURA_RADIUS * 2)
-    auraVisual.Anchored = true
-    auraVisual.CanCollide = false
-    auraVisual.Transparency = 0.7
-    auraVisual.Color = Color3.fromRGB(255, 0, 0)
-    auraVisual.Material = Enum.Material.Neon
-    auraVisual.Parent = Workspace
-    
-    -- Make it a cylinder
-    local mesh = Instance.new("CylinderMesh")
-    mesh.Parent = auraVisual
-end
-
--- Stats tracking
-local killCount = 0
-local damageCount = 0
-local startTime = tick()
-local lastStatsUpdate = tick()
-
--- Track targeted NPCs to avoid spam
-local targetedNPCs = {}
-
-print(string.format("[Kill Aura] Active - %d stud radius", AURA_RADIUS))
-print("Press Ctrl+C in console or close game to stop")
-print("")
-
--- Main aura loop
-local connection
-connection = RunService.Heartbeat:Connect(function()
-    -- Update visual position
-    if auraVisual then
-        auraVisual.CFrame = CFrame.new(hrp.Position) * CFrame.new(0, -2, 0)
+local function restore()
+    for p,d in pairs(seen) do
+        if p and p.Parent and d then
+            pcall(function() p.Size = d.s p.CFrame = d.c end)
+        end
     end
-    
-    -- Find NPCs in range
-    for _, npc in ipairs(EntityFolder:GetChildren()) do
-        if npc:IsA("Model") and npc ~= char then
-            local humanoid = npc:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                local rootPart = npc:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    local distance = (rootPart.Position - hrp.Position).Magnitude
-                    
-                    if distance <= AURA_RADIUS then
-                        -- Check if we should attack this NPC
-                        local lastAttack = targetedNPCs[npc] or 0
-                        if tick() - lastAttack >= ATTACK_INTERVAL then
-                            targetedNPCs[npc] = tick()
-                            
-                            -- Face the NPC
-                            pcall(function()
-                                hrp.CFrame = CFrame.new(hrp.Position, rootPart.Position)
-                            end)
-                            
-                            -- Point camera occasionally
-                            if math.random() < 0.2 then
-                                pcall(function()
-                                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, rootPart.Position)
-                                end)
-                            end
-                            
-                            -- Attack
-                            local startHealth = humanoid.Health
-                            pcall(function() Attack:FireServer() end)
-                            
-                            -- Try skill occasionally
-                            if math.random() < 0.1 and UseSkill then
-                                local skillId = math.random(1, 4)
-                                pcall(function() UseSkill:FireServer(skillId) end)
-                            end
-                            
-                            -- Track if we killed it
-                            task.wait(0.02)
-                            if humanoid.Health <= 0 then
-                                killCount = killCount + 1
-                                print(string.format("[Kill] %s (Total: %d)", npc.Name, killCount))
-                                targetedNPCs[npc] = nil
-                            elseif humanoid.Health < startHealth then
-                                damageCount = damageCount + 1
-                            end
-                        end
-                    end
+    table.clear(seen)
+end
+
+local function apply(c)
+    if not tweak then return end
+    local ok = {HumanoidRootPart=true,Head=true,UpperTorso=true,LowerTorso=true,Torso=true}
+    for _,p in ipairs(c:GetDescendants()) do
+        if p:IsA("BasePart") and ok[p.Name] and not seen[p] then
+            seen[p] = {s=p.Size,c=p.CFrame}
+            pcall(function() p.Size = p.Size * scale p.CFrame = p.CFrame + offset p.CanCollide = false end)
+        end
+    end
+end
+
+local conn
+conn = RunService.Heartbeat:Connect(function()
+    if not running then return end
+    local c,r = getRoot()
+    if not c or not r then return end
+    if tweak then apply(c) end
+
+    local now = tick()
+    local done = 0
+    for _,npc in ipairs(folder:GetChildren()) do
+        if done >= maxTick then break end
+        if npc:IsA("Model") and npc ~= c then
+            local hum = npc:FindFirstChildOfClass("Humanoid")
+            local rp = partOf(npc)
+            if hum and hum.Health > 0 and rp and (rp.Position - r.Position).Magnitude <= radius then
+                local t = last[npc] or 0
+                if now - t >= interval then
+                    last[npc] = now
+                    pcall(function() attack:FireServer() end)
+                    calls = calls + 1
+                    done = done + 1
                 end
             end
         end
     end
-    
-    -- Clean up old targets
-    for npc, lastTime in pairs(targetedNPCs) do
-        if tick() - lastTime > 5 or not npc.Parent then
-            targetedNPCs[npc] = nil
-        end
-    end
-    
-    -- Stats update every 10 seconds
-    if tick() - lastStatsUpdate > 10 then
-        lastStatsUpdate = tick()
-        local elapsed = tick() - startTime
-        local kpm = killCount / (elapsed / 60)
-        print(string.format("[Stats] Kills: %d | Damage Hits: %d | KPM: %.1f", 
-            killCount, damageCount, kpm))
+
+    for npc,t in pairs(last) do
+        if (not npc.Parent) or (now - t > 6) then last[npc] = nil end
     end
 end)
 
--- Cleanup function
-_G.StopKillAura = function()
-    if connection then
-        connection:Disconnect()
-        print("[Kill Aura] Stopped")
-    end
-    if auraVisual then
-        auraVisual:Destroy()
-    end
-    
-    local elapsed = tick() - startTime
-    print("")
-    print("=" .. string.rep("=", 60))
-    print(string.format("[Kill Aura] Session Complete - %.1f seconds", elapsed))
-    print(string.format("Total Kills: %d", killCount))
-    print(string.format("Kills Per Minute: %.1f", killCount / (elapsed / 60)))
-    print("=" .. string.rep("=", 60))
+local function setTweak(v)
+    tweak = v and true or false
+    if not tweak then restore() end
+    print("[KA] LocalHitbox: " .. (tweak and "ON" or "OFF"))
 end
 
-print("[Kill Aura] Running... Call _G.StopKillAura() to stop")
-print("[Kill Aura] Or use: loadstring('_G.StopKillAura()')() to stop remotely")
+_G.SetLocalHitboxTweak = function(v) setTweak(v) end
+_G.ToggleLocalHitboxTweak = function() setTweak(not tweak) end
+_G.KillAuraStatus = function()
+    print("[KA] Running: " .. tostring(running))
+    print("[KA] Calls: " .. tostring(calls))
+    print("[KA] LocalHitbox: " .. (tweak and "ON" or "OFF"))
+end
+_G.StopKillAura = function()
+    running = false
+    if conn then conn:Disconnect() conn = nil end
+    restore()
+    print("[KA] Stop | t=" .. tostring(math.floor((tick()-start)*10)/10) .. "s | c=" .. tostring(calls))
+end
+
+print("[KA] Running")
+print("[KA] Stop: _G.StopKillAura()")
