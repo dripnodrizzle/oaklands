@@ -1,6 +1,20 @@
 -- Prize Wheel Free Spin Toggle Script for Roblox
 -- Works specifically with Delta executor
 
+local sharedState = _G.__PrizeWheelFreeSpinState
+if type(sharedState) ~= "table" then
+    sharedState = {}
+    _G.__PrizeWheelFreeSpinState = sharedState
+end
+
+if sharedState.loading or sharedState.loaded or _G.__PrizeWheelFreeSpinLoaded then
+    print("[INFO] PrizeWheelFreeSpin already loaded; skipping duplicate init")
+    return
+end
+
+sharedState.loading = true
+_G.__PrizeWheelFreeSpinLoaded = true
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Bound child lookup prevents infinite yield warnings from long WaitForChild chains.
@@ -102,6 +116,15 @@ local function setupPrizeWheelToggle()
         end,
         isEnabled = function()
             return isFreeSpinsEnabled
+        end,
+        unload = function()
+            _G.PrizeWheelFreeSpin = nil
+            _G.__PrizeWheelFreeSpinLoaded = nil
+            if type(_G.__PrizeWheelFreeSpinState) == "table" then
+                _G.__PrizeWheelFreeSpinState.loading = nil
+                _G.__PrizeWheelFreeSpinState.loaded = nil
+            end
+            print("[INFO] PrizeWheelFreeSpin state cleared")
         end
     }
     
@@ -119,12 +142,20 @@ local ok, prizeWheelToggle = pcall(setupPrizeWheelToggle)
 
 if not ok then
     local setupError = tostring(prizeWheelToggle)
+    if type(_G.__PrizeWheelFreeSpinState) == "table" then
+        _G.__PrizeWheelFreeSpinState.loading = nil
+    end
+    _G.__PrizeWheelFreeSpinLoaded = nil
     warn("[ERROR] Setup failed: " .. setupError)
     return
 end
 
 -- Export globally so it's accessible from console
 _G.PrizeWheelFreeSpin = prizeWheelToggle
+if type(_G.__PrizeWheelFreeSpinState) == "table" then
+    _G.__PrizeWheelFreeSpinState.loading = nil
+    _G.__PrizeWheelFreeSpinState.loaded = true
+end
 
 print("[OK] Prize Wheel Free Spin Toggle loaded!")
 print("[INFO] Available functions:")
@@ -132,6 +163,7 @@ print("   - PrizeWheelFreeSpin.spin()      # Perform a spin")
 print("   - PrizeWheelFreeSpin.toggle()    # Toggle free spins on/off")
 print("   - PrizeWheelFreeSpin.enable()    # Enable free spins") 
 print("   - PrizeWheelFreeSpin.disable()   # Disable free spins")
+print("   - PrizeWheelFreeSpin.unload()    # Clear loaded state")
 
 -- Add a simple toggle button (since Delta doesn't support GUI well)
 local function createToggleUI()
